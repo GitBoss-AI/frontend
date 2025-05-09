@@ -6,3 +6,6 @@ next-env.d.ts
 /node_modules
 
 .idea
+
+# pm2 setup
+ecosystem.config.js

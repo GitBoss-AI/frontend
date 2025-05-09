@@ -46,7 +46,7 @@ const Dashboard = () => {
         <div className="mx-auto px-4">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-gray-900">
-              GitBoss AI Dashboard
+              GitBoss AI Dashboard - Development
             </h1>
             <div className="flex gap-4">
               <select

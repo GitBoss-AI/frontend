@@ -40,7 +40,7 @@ const Dashboard = () => {
   // const [selectedMetric, setSelectedMetric] = useState("commits");
 
   return (
-    <div className="flex h-screen flex-col bg-gray-900 text-gray-100">
+    <div className="flex h-screen flex-col bg-gray-50">
       {/* Header */}
       <header className="bg-white py-2 shadow">
         <div className="mx-auto px-4">

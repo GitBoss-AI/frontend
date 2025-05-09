@@ -9,18 +9,32 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Deploy via SSH
+      - name: Install Tailscale
+        run: |
+          curl -fsSL https://tailscale.com/install.sh | sh
+
+      - name: Bring runner onto tailnet
+        env:
+          TS_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+        run: |
+          sudo tailscale up \
+            --authkey=$TS_AUTH_KEY \
+            --hostname=gha-runner \
+            --accept-routes
+
+      - name: Deploy via SSH over Tailscale
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.SERVER_HOST }}
+          host:     pi.tailfd3b1e.ts.net
           username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
+          key:      ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd /var/www/gitboss-ai/frontend-dev
             git pull origin dev
-            npm install --frozen-lockfile
+            npm ci
             npm run build
             pm2 restart gitboss-frontend-dev
+

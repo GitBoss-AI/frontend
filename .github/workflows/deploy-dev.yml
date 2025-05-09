@@ -34,7 +34,7 @@ jobs:
           script: |
             cd /var/www/gitboss-ai/frontend-dev
             git pull origin dev
-            npm ci
+            npm install
             npm run build
             pm2 restart gitboss-frontend-dev
 

@@ -4,6 +4,20 @@ This is the frontend codebase for the GitBoss AI project. It is built using Next
 
 ## Development Workflow
 
+### Environment Configuration
+
+To ensure the frontend always talks to the correct backend during development, use the following environment variable:
+
+```NEXT_PUBLIC_API_URL=https://gitboss-ai.emirbosnak.com/api-dev```
+
+This ensures that:
+
+- Local development (npm run dev) uses the remote dev API
+- Preview builds and PRs also target the correct backend
+- No mismatch between local/remote environments
+
+Do not point to localhost or another API unless explicitly testing locally.
+
 ### PRs and Branching
 
 - **Only open pull requests against the `dev` branch.**
@@ -23,6 +37,14 @@ This is the frontend codebase for the GitBoss AI project. It is built using Next
    **https://gitboss-ai.emirbosnak.com/dev**
 
 - This happens within ~2 minutes after merging (via polling-based CI/CD).
+
+## API Endpoint (Dev)
+
+The backend API for dev environment is available at:
+
+https://gitboss-ai.emirbosnak.com/api-dev
+
+Use this when making frontend requests during development. It is hosted alongside the frontend dev environment under a separate subpath.
 
 ## Future Improvements (Planned)
 

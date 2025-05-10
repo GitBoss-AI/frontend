@@ -188,6 +188,7 @@ const Dashboard = () => {
 
             {/* AI Chat Interface */}
             <div className="col-span-1 flex flex-col rounded-lg bg-white p-3 shadow">
+<<<<<<< Updated upstream
               <h2 className="mb-2 text-sm font-semibold">
                 GitBoss AI Assistant
               </h2>
@@ -228,6 +229,9 @@ Resolved 2 issues related to bug fixes in the authentication module."
                   </button>
                 </div>
               </div>
+=======
+              <ChatInterface className="flex-1 min-h-0" />
+>>>>>>> Stashed changes
             </div>
           </div>
 

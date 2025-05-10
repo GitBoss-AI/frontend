@@ -45,7 +45,7 @@ const Dashboard = () => {
   // Check authentication status
   useEffect(() => {
     if (!isAuthenticated()) {
-      router.push("/dev/signin");
+      router.push("/signin");
     }
   }, [router]);
 

@@ -56,49 +56,52 @@ export default function RegisterPage() {
         {error && <p className="text-red-500">{error}</p>}
 
         <input
-          type="text"
-          placeholder="Username"
-          className="w-full rounded border px-4 py-2"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          required
-          disabled={isLoading}
+            type="text"
+            placeholder="Username"
+            className="w-full rounded border px-4 py-2"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+            disabled={isLoading}
         />
 
         <input
-          type="text"
-          placeholder="GitHub ownerships (e.g. emir,emir-devs)"
-          className="w-full rounded border px-4 py-2"
-          value={githubOwnership}
-          onChange={(e) => setGithubOwnership(e.target.value)}
-          required
-          disabled={isLoading}
+            type="text"
+            placeholder="GitHub ownerships (e.g. emir,emir-devs)"
+            className="w-full rounded border px-4 py-2"
+            value={githubOwnership}
+            onChange={(e) => setGithubOwnership(e.target.value)}
+            required
+            disabled={isLoading}
         />
 
         <input
-          type="password"
-          placeholder="Password"
-          className="w-full rounded border px-4 py-2"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          disabled={isLoading}
+            type="password"
+            placeholder="Password"
+            className="w-full rounded border px-4 py-2"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            disabled={isLoading}
         />
 
-        <button
-          type="submit"
-          className="w-full rounded bg-black py-2 font-semibold text-white disabled:bg-gray-400"
-          disabled={isLoading}
-        >
-          {isLoading ? "Registering..." : "Register"}
-        </button>
+        <div className="space-y-2">
+          <button
+              type="submit"
+              className="w-full rounded bg-black py-2 font-semibold text-white disabled:bg-gray-400"
+              disabled={isLoading}
+          >
+            {isLoading ? "Registering..." : "Register"}
+          </button>
 
-        <p className="text-center text-sm">
-          Already have an account?{" "}
-          <a href="/signin" className="text-blue-600 underline">
-            Sign in
-          </a>
-        </p>
+          <button
+              type="button"
+              onClick={() => router.push("/signin")}
+              className="w-full rounded border border-black py-2 font-semibold text-black hover:bg-gray-100"
+          >
+            Sign In
+          </button>
+        </div>
       </form>
     </main>
   );

@@ -1,5 +1,6 @@
 import "@/styles/globals.css";
 import { Geist } from "next/font/google";
+import { UserProvider } from "@/contexts/UserContext";
 
 export const metadata = {
   title: "GitBoss Dev",
@@ -14,8 +15,11 @@ const geist = Geist({
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={geist.variable}>
-      <body>{children}</body>
+      <body>
+        <UserProvider>
+          {children}
+        </UserProvider>
+      </body>
     </html>
   );
 }
-

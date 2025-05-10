@@ -1,5 +1,8 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useUser } from "@/contexts/UserContext";
+import { isAuthenticated } from "@/utils/auth";
 import {
   LineChart,
   BarChart,
@@ -36,6 +39,21 @@ const mockDeveloperData = [
 ];
 
 const Dashboard = () => {
+  const { user, logout } = useUser();
+  const router = useRouter();
+
+  // Check authentication status
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push("/dev/signin");
+    }
+  }, [router]);
+
+  // Handle logout
+  const handleLogout = () => {
+    logout();
+  };
+
   const [selectedTimeframe, setSelectedTimeframe] = useState("month");
   // const [selectedMetric, setSelectedMetric] = useState("commits");
 
@@ -48,19 +66,36 @@ const Dashboard = () => {
             <h1 className="text-2xl font-bold text-gray-900">
               GitBoss AI Dashboard - Development
             </h1>
-            <div className="flex gap-4">
-              <select
-                className="rounded-md border-gray-300 px-3 py-1 text-sm shadow-sm"
-                value={selectedTimeframe}
-                onChange={(e) => setSelectedTimeframe(e.target.value)}
-              >
-                <option value="week">This Week</option>
-                <option value="month">This Month</option>
-                <option value="quarter">This Quarter</option>
-              </select>
-              <button className="rounded-md bg-indigo-600 px-3 py-1 text-sm text-white hover:bg-indigo-700">
-                Generate Report
-              </button>
+
+            <div className="flex items-center gap-4">
+              {/* Controls */}
+              <div className="flex gap-2">
+                <select
+                    className="rounded-md border-gray-300 px-3 py-1 text-sm shadow-sm"
+                    value={selectedTimeframe}
+                    onChange={(e) => setSelectedTimeframe(e.target.value)}
+                >
+                  <option value="week">This Week</option>
+                  <option value="month">This Month</option>
+                  <option value="quarter">This Quarter</option>
+                </select>
+                <button className="rounded-md bg-indigo-600 px-3 py-1 text-sm text-white hover:bg-indigo-700">
+                  Generate Report
+                </button>
+              </div>
+
+              {/* User actions */}
+              <div className="flex items-center gap-2 border-l pl-4">
+                <span className="text-sm text-gray-600">
+                  {user?.username || 'User'}
+                </span>
+                <button
+                    onClick={handleLogout}
+                    className="rounded-md bg-gray-200 px-3 py-1 text-sm hover:bg-gray-300"
+                >
+                  Logout
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -72,28 +107,28 @@ const Dashboard = () => {
           {/* Stats Overview */}
           <div className="grid grid-cols-4 gap-4">
             <StatsCard
-              title="Total Commits"
-              value="348"
-              icon={<GitCommit className="h-5 w-5" />}
-              change="+12.5%"
+                title="Total Commits"
+                value="348"
+                icon={<GitCommit className="h-5 w-5"/>}
+                change="+12.5%"
             />
             <StatsCard
-              title="Open PRs"
-              value="24"
-              icon={<GitPullRequest className="h-5 w-5" />}
-              change="-3.2%"
+                title="Open PRs"
+                value="24"
+                icon={<GitPullRequest className="h-5 w-5"/>}
+                change="-3.2%"
             />
             <StatsCard
-              title="Code Reviews"
-              value="86"
-              icon={<MessageSquare className="h-5 w-5" />}
-              change="+8.1%"
+                title="Code Reviews"
+                value="86"
+                icon={<MessageSquare className="h-5 w-5"/>}
+                change="+8.1%"
             />
             <StatsCard
-              title="Active Issues"
-              value="32"
-              icon={<AlertCircle className="h-5 w-5" />}
-              change="+2.4%"
+                title="Active Issues"
+                value="32"
+                icon={<AlertCircle className="h-5 w-5"/>}
+                change="+2.4%"
             />
           </div>
 

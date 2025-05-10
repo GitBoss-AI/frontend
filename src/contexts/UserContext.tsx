@@ -56,7 +56,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     clearToken();
     setUser(null);
-    router.push('/dev/signin');
+    router.push('/signin');
   };
 
   // Context value

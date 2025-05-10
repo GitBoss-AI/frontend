@@ -49,7 +49,7 @@ export default function SignInPage() {
         console.log("Authentication successful");
 
         // Redirect to dashboard
-        router.push("/dev/dashboard");
+        router.push("/dashboard");
       } else {
         // Handle authentication error from backend
         setError(data.error || "Invalid login credentials");

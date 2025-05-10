@@ -11,7 +11,7 @@ export default function SignInPage() {
     e.preventDefault();
     setError("");
 
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/health-check.php`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),

@@ -45,11 +45,3 @@ The backend API for dev environment is available at:
 https://gitboss-ai.emirbosnak.com/api-dev
 
 Use this when making frontend requests during development. It is hosted alongside the frontend dev environment under a separate subpath.
-
-## Future Improvements (Planned)
-
-- Add web-accessible logs for the dev environment
-- Implement production deployment from `main`
-- Possibly migrate to webhook- or event-driven CI/CD if SSH becomes reliable
-- **Process Manager:** PM2
-- **CI/CD:** GitHub Actions → Tailscale-connected self-hosted server

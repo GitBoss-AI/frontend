@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/UserContext";
 import { isAuthenticated } from "@/utils/auth";
+import ChatInterface from "@/components/ChatInterface";
 import {
   LineChart,
   BarChart,
@@ -107,28 +108,28 @@ const Dashboard = () => {
           {/* Stats Overview */}
           <div className="grid grid-cols-4 gap-4">
             <StatsCard
-                title="Total Commits"
-                value="348"
-                icon={<GitCommit className="h-5 w-5"/>}
-                change="+12.5%"
+              title="Total Commits"
+              value="348"
+              icon={<GitCommit className="h-5 w-5" />}
+              change="+12.5%"
             />
             <StatsCard
-                title="Open PRs"
-                value="24"
-                icon={<GitPullRequest className="h-5 w-5"/>}
-                change="-3.2%"
+              title="Open PRs"
+              value="24"
+              icon={<GitPullRequest className="h-5 w-5" />}
+              change="-3.2%"
             />
             <StatsCard
-                title="Code Reviews"
-                value="86"
-                icon={<MessageSquare className="h-5 w-5"/>}
-                change="+8.1%"
+              title="Code Reviews"
+              value="86"
+              icon={<MessageSquare className="h-5 w-5" />}
+              change="+8.1%"
             />
             <StatsCard
-                title="Active Issues"
-                value="32"
-                icon={<AlertCircle className="h-5 w-5"/>}
-                change="+2.4%"
+              title="Active Issues"
+              value="32"
+              icon={<AlertCircle className="h-5 w-5" />}
+              change="+2.4%"
             />
           </div>
 
@@ -191,43 +192,7 @@ const Dashboard = () => {
               <h2 className="mb-2 text-sm font-semibold">
                 GitBoss AI Assistant
               </h2>
-              <div className="flex min-h-0 flex-1 flex-col">
-                <div className="mb-2 flex-1 space-y-2 overflow-y-auto pr-2">
-                  <ChatMessage isAI={false} message="Who worked on PR#5?" />
-                  <ChatMessage
-                    isAI={true}
-                    message="PR#5 was worked on by @Ali, @Josh, and @Denise. Would you like to know who reviewed this PR?"
-                  />
-                  <ChatMessage isAI={false} message="Yes, please." />
-                  <ChatMessage
-                    isAI={true}
-                    message="PR#5 was reviewed by @Ali and @Denise. Both provided feedback on the code quality and suggested improvements to the error handling."
-                  />
-                  <ChatMessage
-                    isAI={false}
-                    message="Thanks, can you summarize @Josh's contributions this week?"
-                  />
-                  <ChatMessage
-                    isAI={true}
-                    message="Here's a summary of @Josh's contributions this week:
-
-3 Pull Requests opened, 2 merged, and 1 under review.
-12 Commits across 2 repositories.
-Reviewed 2 PRs, leaving detailed feedback on 3.
-Resolved 2 issues related to bug fixes in the authentication module."
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Ask about team performance..."
-                    className="flex-1 rounded-md border-gray-300 px-2 py-1 text-sm shadow-sm"
-                  />
-                  <button className="rounded-md bg-indigo-600 px-2 py-1 text-sm text-white hover:bg-indigo-700">
-                    Send
-                  </button>
-                </div>
-              </div>
+              <ChatInterface className="flex-1 min-h-0" />
             </div>
           </div>
 
@@ -261,7 +226,7 @@ Resolved 2 issues related to bug fixes in the authentication module."
         </div>
       </main>
     </div>
-  );
+);
 };
 
 type StatsCardProps = {
@@ -272,7 +237,8 @@ type StatsCardProps = {
 };
 
 // Component for statistics cards
-const StatsCard = ({ title, value, icon, change }: StatsCardProps) => (
+const StatsCard = ({
+  title, value, icon, change }: StatsCardProps) => (
   <div className="rounded-lg bg-white p-3 shadow">
     <div className="flex items-center justify-between">
       <div>
@@ -332,17 +298,5 @@ type ChatMessageProps = {
   isAI: boolean;
   message: string;
 };
-
-// Component for chat messages
-const ChatMessage = ({ isAI, message }: ChatMessageProps) => (
-  <div className={`flex ${isAI ? "justify-start" : "justify-end"}`}>
-    <div
-      className={`max-w-3/4 rounded-lg p-2 ${isAI ? "bg-gray-100" : "bg-indigo-600 text-white"
-        }`}
-    >
-      <p className="text-xs">{message}</p>
-    </div>
-  </div>
-);
 
 export default Dashboard;

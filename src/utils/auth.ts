@@ -1,6 +1,8 @@
 /**
  * Authentication utilities for JWT storage and WebSocket connections
  */
+import { getItem, setItem, removeItem } from '@/utils/storage';
+
 const WEBSOCKET_URL = 'wss://gitboss-ai.emirbosnak.com/ws-dev';
 const JWT_STRUCTURE = {
   HEADER_INDEX: 0,
@@ -10,22 +12,22 @@ const JWT_STRUCTURE = {
 
 // Store JWT token in localStorage
 export const storeToken = (token: string, expires: number): void => {
-  localStorage.setItem('auth_token', token);
-  localStorage.setItem('token_expiry', expires.toString());
-  localStorage.setItem('is_authenticated', 'true');
+  setItem('auth_token', token);
+  setItem('token_expiry', expires.toString());
+  setItem('is_authenticated', 'true');
 };
 
 // Clear authentication data on logout
 export const clearToken = (): void => {
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('token_expiry');
-  localStorage.setItem('is_authenticated', 'false');
+  removeItem('auth_token');
+  removeItem('token_expiry');
+  setItem('is_authenticated', 'false');
 };
 
 // Get stored token
 export const getToken = (): string | null => {
-  const token = localStorage.getItem('auth_token');
-  const expiry = Number(localStorage.getItem('token_expiry') || '0');
+  const token = getItem('auth_token');
+  const expiry = Number(getItem('token_expiry') || '0');
 
   // Check if token is expired
   const now = Math.floor(Date.now() / 1000); // Current time in seconds

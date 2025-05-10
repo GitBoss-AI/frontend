@@ -69,30 +69,41 @@ export default function SignInPage() {
         <h1 className="text-2xl font-bold">Sign In</h1>
         {error && <p className="text-red-500">{error}</p>}
         <input
-          type="text"
-          placeholder="Username"
-          className="w-full rounded border px-4 py-2"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          required
-          disabled={isLoading}
+            type="text"
+            placeholder="Username"
+            className="w-full rounded border px-4 py-2"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+            disabled={isLoading}
         />
         <input
-          type="password"
-          placeholder="Password"
-          className="w-full rounded border px-4 py-2"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          disabled={isLoading}
+            type="password"
+            placeholder="Password"
+            className="w-full rounded border px-4 py-2"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            disabled={isLoading}
         />
-        <button
-          type="submit"
-          className="w-full rounded bg-black py-2 font-semibold text-white disabled:bg-gray-400"
-          disabled={isLoading}
-        >
-          {isLoading ? "Signing in..." : "Login"}
-        </button>
+        <div className="space-y-2">
+          <button
+              type="submit"
+              className="w-full rounded bg-black py-2 font-semibold text-white disabled:bg-gray-400"
+              disabled={isLoading}
+          >
+            {isLoading ? "Signing in..." : "Login"}
+          </button>
+
+          <button
+              type="button"
+              onClick={() => router.push("/register")}
+              className="w-full rounded border border-black py-2 font-semibold text-black hover:bg-gray-100"
+          >
+            Register
+          </button>
+        </div>
+
       </form>
     </main>
   );

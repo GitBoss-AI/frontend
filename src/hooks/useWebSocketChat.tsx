@@ -150,7 +150,11 @@ export const useWebSocketChat = (): WebSocketChatResult => {
       });
     } catch (e) {
       console.error('Error creating WebSocket:', e);
-      setError(`Connection error: ${e.message}`);
+      if (e instanceof Error) {
+        setError(`Connection error: ${e.message}`);
+      } else {
+        setError('Connection error: Unknown error');
+      }
       connectingRef.current = false;
     }
   }, [clearTypingIndicator]);

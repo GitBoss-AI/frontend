@@ -14,8 +14,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   title = 'GitBoss AI Assistant'
 }) => {
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const { messages, sendMessage, isConnected, error } = useWebSocketChat();
+  const { messages, sendMessage, isConnected, error, isTyping } = useWebSocketChat();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const user = getUserFromToken();
@@ -27,34 +26,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [isConnected]);
 
-  // Scroll to bottom whenever messages change
+  // Scroll to bottom whenever messages change or typing state changes
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]);
-
-  // Simulate AI typing for better UX
-  useEffect(() => {
-    const lastMessage = messages[messages.length - 1];
-
-    // If the last message was from the user, show typing indicator
-    if (lastMessage && lastMessage.isFromUser) {
-      setIsTyping(true);
-
-      // Hide typing indicator after a short delay or when response arrives
-      const timeout = setTimeout(() => {
-        setIsTyping(false);
-      }, 1500);
-
-      return () => clearTimeout(timeout);
-    }
-  }, [messages]);
+  }, [messages, isTyping]);
 
   // Handle form submission
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || !isConnected) return;
 
     sendMessage(input.trim());
     setInput('');
@@ -135,7 +117,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               </div>
             ))}
 
-            {/* Typing indicator */}
+            {/* Typing indicator - only show if isTyping is true */}
             {isTyping && (
               <div className="flex justify-start">
                 <div className="rounded-lg bg-gray-100 p-2 text-gray-800">

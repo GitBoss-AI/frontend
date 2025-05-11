@@ -15,36 +15,43 @@ export async function addRepository(userId: number, repoUrl: string) {
     }),
   });
 
+  const data = await response.json();
+
   if (!response.ok) {
-    throw new Error("Failed to add repository");
+    throw new Error(data.error || "Failed to add repository");
   }
 
-  return response.json();
+  return data;
 }
 
 export async function getAllRepositories(userId: number) {
   const response = await fetch(`${API_BASE}/repo/getAll?user_id=${userId}`);
 
+  const data = await response.json();
+
   if (!response.ok) {
-    throw new Error("Failed to fetch repositories");
+    throw new Error(data.error || "Failed to fetch repositories");
   }
 
-  return response.json();
+  return data;
 }
 
 export async function getRepositoryStats(
   repoUrl: string,
   timeWindow: string = "7d",
 ) {
+  repoUrl = repoUrl.replace("https://", "").replace("www.", "");
   const response = await fetch(
     `${API_BASE}/repo/stats?repo_url=${encodeURIComponent(repoUrl)}&time_window=${timeWindow}`,
   );
 
+  const data = await response.json();
+
   if (!response.ok) {
-    throw new Error("Failed to fetch repository stats");
+    throw new Error(data.error || "Failed to fetch repository stats");
   }
 
-  return response.json();
+  return data;
 }
 
 // Contributor endpoints
@@ -58,11 +65,13 @@ export async function getContributorStats(
     `${API_BASE}/contributor/stats?github_username=${githubUsername}&repo_id=${repoId}&user_id=${userId}&time_window=${timeWindow}`,
   );
 
+  const data = await response.json();
+
   if (!response.ok) {
-    throw new Error("Failed to fetch contributor stats");
+    throw new Error(data.error || "Failed to fetch contributor stats");
   }
 
-  return response.json();
+  return data;
 }
 
 export async function getTopPerformers(
@@ -73,11 +82,13 @@ export async function getTopPerformers(
     `${API_BASE}/contributor/topPerformers?repo_id=${repoId}&time_window=${timeWindow}`,
   );
 
+  const data = await response.json();
+
   if (!response.ok) {
-    throw new Error("Failed to fetch top performers");
+    throw new Error(data.error || "Failed to fetch top performers");
   }
 
-  return response.json();
+  return data;
 }
 
 export async function getRecentActivity(repoId: number) {
@@ -85,11 +96,13 @@ export async function getRecentActivity(repoId: number) {
     `${API_BASE}/contributor/recent-activity?repo_id=${repoId}`,
   );
 
+  const data = await response.json();
+
   if (!response.ok) {
-    throw new Error("Failed to fetch recent activity");
+    throw new Error(data.error || "Failed to fetch recent activity");
   }
 
-  return response.json();
+  return data;
 }
 
 // Team endpoints
@@ -101,9 +114,11 @@ export async function getTeamTimeline(
     `${API_BASE}/team/timeline?repo_id=${repoId}&group_by=${groupBy}`,
   );
 
+  const data = await response.json();
+
   if (!response.ok) {
-    throw new Error("Failed to fetch team timeline");
+    throw new Error(data.error || "Failed to fetch team timeline");
   }
 
-  return response.json();
+  return data;
 }

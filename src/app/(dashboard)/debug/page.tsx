@@ -251,7 +251,7 @@ export default function ApiTestPage() {
               <button
                 onClick={() =>
                   callApi(
-                    () => getRepositoryStats(repoUrl, timeWindow),
+                    () => getRepositoryStats(repoUrl, timeWindow, repoId),
                     "getRepositoryStats",
                     { repoUrl, timeWindow },
                   )

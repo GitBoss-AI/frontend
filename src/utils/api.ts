@@ -39,10 +39,11 @@ export async function getAllRepositories(userId: number) {
 export async function getRepositoryStats(
   repoUrl: string,
   timeWindow: string = "7d",
+  repoId: number,
 ) {
   repoUrl = repoUrl.replace("https://", "").replace("www.", "");
   const response = await fetch(
-    `${API_BASE}/repo/stats?repo_url=${encodeURIComponent(repoUrl)}&time_window=${timeWindow}`,
+    `${API_BASE}/repo/stats?repo_url=${encodeURIComponent(repoUrl)}&time_window=${timeWindow}&repo_id=${repoId}`,
   );
 
   const data = await response.json();

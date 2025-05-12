@@ -7,6 +7,7 @@ import { useUser } from "@/contexts/UserContext";
 import { useWebSocketChat, Message as ChatMessage } from '@/hooks/useWebSocketChat'; // Import Message type
 import { RefreshCw, MessageSquare, ListChecks, Send, CornerDownLeft } from 'lucide-react';
 import Link from 'next/link';
+import PRAnalysisDisplay from '@/components/PRAnalysisDisplay';
 
 const quickPrompts = [
   "Analyze commit patterns for owner/repo", // Adjusted to be more generic
@@ -256,6 +257,15 @@ export default function ChatPage() {
             </div>
         </div>
         {/* --- End Tools Section --- */}
+
+        {analysisResult && (
+          <div className="mt-4">
+            <PRAnalysisDisplay 
+              analysis={analysisResult} 
+              prUrl={`https://github.com/${repoOwnerInput}/${repoNameInput}/pull/${prNumberInput}`}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

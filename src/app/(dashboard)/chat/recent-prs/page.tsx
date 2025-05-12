@@ -181,7 +181,10 @@ export default function RecentPRsPage() {
                 </div>
             )}
             {singlePrAnalysisResult && !isLoadingSingleAnalysis && (
-                <PRAnalysisDisplay analysis={singlePrAnalysisResult} />
+                <PRAnalysisDisplay 
+                    analysis={singlePrAnalysisResult} 
+                    prUrl={`https://github.com/${singlePrOwner}/${singlePrRepo}/pull/${singlePrNumber}`} 
+                />
             )}
         </form>
       </div>
@@ -298,7 +301,10 @@ export default function RecentPRsPage() {
                     {loadingAnalyses[pr.number] && <p className="text-sm text-gray-500 py-2 flex items-center"><Loader2 className="w-4 h-4 mr-2 animate-spin"/>Loading analysis...</p>}
                     {errorAnalyses[pr.number] && <p className="text-sm text-red-600 p-2 bg-red-50 rounded-md">{errorAnalyses[pr.number]}</p>}
                     {analyses[pr.number] && !loadingAnalyses[pr.number] && !errorAnalyses[pr.number] && (
-                      <PRAnalysisDisplay analysis={analyses[pr.number]!} />
+                      <PRAnalysisDisplay 
+                        analysis={analyses[pr.number]!} 
+                        prUrl={pr.url}
+                      />
                     )}
                   </div>
                 )}

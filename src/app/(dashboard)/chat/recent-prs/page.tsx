@@ -1,267 +1,328 @@
 "use client";
 
 import React, { useState, useCallback, FormEvent, useEffect } from 'react';
-import { getRepositoryPRs, PRListItemAPI } from '@/utils/api';
-import { ListChecks, AlertCircle, ExternalLink, Search, Loader2, CalendarDays, Filter } from 'lucide-react';
+import { getRepositoryPRs, PRListItemAPI, analyzePullRequest, PRAnalysisResponse } from '@/utils/api';
+import {
+  ListChecks, AlertCircle, ExternalLink, Search, Loader2, CalendarDays, Filter, ChevronDown, ChevronUp, FileText, Sparkles
+} from 'lucide-react';
 import Link from 'next/link';
+import PRAnalysisDisplay from '@/components/PRAnalysisDisplay'; // Import the new component
 
-// Helper to get today's date in YYYY-MM-DD format for input default
+// Helper date functions (getTodayDateString, getPastDateString - keep as before)
 const getTodayDateString = () => {
   const today = new Date();
-  const year = today.getFullYear();
-  const month = (today.getMonth() + 1).toString().padStart(2, '0');
-  const day = today.getDate().toString().padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return today.toISOString().split('T')[0];
 };
-
-// Helper to get a date N days ago in YYYY-MM-DD format
 const getPastDateString = (daysAgo: number) => {
   const date = new Date();
   date.setDate(date.getDate() - daysAgo);
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return date.toISOString().split('T')[0];
 };
 
-
 export default function RecentPRsPage() {
-  const [repoOwner, setRepoOwner] = useState<string>("facebook");
-  const [repoName, setRepoName] = useState<string>("react");
-  // Default to last 7 days
-  const [startDate, setStartDate] = useState<string>(getPastDateString(7));
-  const [endDate, setEndDate] = useState<string>(getTodayDateString());
-  const [prStateFilter, setPrStateFilter] = useState<string>("all"); // "all", "open", "closed", "merged"
-
+  // State for the PR list form
+  const [listRepoOwner, setListRepoOwner] = useState<string>("facebook");
+  const [listRepoName, setListRepoName] = useState<string>("react");
+  const [listStartDate, setListStartDate] = useState<string>(getPastDateString(7));
+  const [listEndDate, setListEndDate] = useState<string>(getTodayDateString());
+  const [listPrStateFilter, setListPrStateFilter] = useState<string>("all");
 
   const [prList, setPrList] = useState<PRListItemAPI[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hasFetched, setHasFetched] = useState(false);
+  const [isLoadingList, setIsLoadingList] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+  const [hasFetchedList, setHasFetchedList] = useState(false);
 
-  const fetchPRs = useCallback(async () => {
-    if (!repoOwner.trim() || !repoName.trim()) {
-      setError("Repository owner and name are required.");
-      setHasFetched(true);
+  // State for individual PR analyses (keyed by PR number)
+  const [analyses, setAnalyses] = useState<{ [key: number]: PRAnalysisResponse | null }>({});
+  const [loadingAnalyses, setLoadingAnalyses] = useState<{ [key: number]: boolean }>({});
+  const [errorAnalyses, setErrorAnalyses] = useState<{ [key: number]: string | null }>({});
+  const [expandedAnalyses, setExpandedAnalyses] = useState<{ [key: number]: boolean }>({});
+
+  // State for the general "Analyze Single PR" tool
+  const [singlePrOwner, setSinglePrOwner] = useState<string>("");
+  const [singlePrRepo, setSinglePrRepo] = useState<string>("");
+  const [singlePrNumber, setSinglePrNumber] = useState<string>("");
+  const [singlePrAnalysisResult, setSinglePrAnalysisResult] = useState<PRAnalysisResponse | null>(null);
+  const [isLoadingSingleAnalysis, setIsLoadingSingleAnalysis] = useState(false);
+  const [singleAnalysisError, setSingleAnalysisError] = useState<string | null>(null);
+
+
+  const fetchPRList = useCallback(async () => {
+    if (!listRepoOwner.trim() || !listRepoName.trim()) {
+      setListError("Repository owner and name are required for listing.");
+      setHasFetchedList(true);
       return;
     }
-    if (startDate && endDate && startDate > endDate) {
-      setError("Start date cannot be after end date.");
-      setHasFetched(true);
+    if (listStartDate && listEndDate && listStartDate > listEndDate) {
+      setListError("Start date cannot be after end date for listing.");
+      setHasFetchedList(true);
       return;
     }
-
-    setIsLoading(true);
-    setError(null);
+    setIsLoadingList(true);
+    setListError(null);
     setPrList([]);
-    setHasFetched(true);
+    setHasFetchedList(true);
     try {
       const result = await getRepositoryPRs(
-        repoOwner.trim(),
-        repoName.trim(),
-        startDate || undefined, // Pass undefined if empty to match Optional[str]
-        endDate || undefined,   // Pass undefined if empty
-        prStateFilter
+        listRepoOwner.trim(),
+        listRepoName.trim(),
+        listStartDate || undefined,
+        listEndDate || undefined,
+        listPrStateFilter
       );
       setPrList(result);
       if (result.length === 0) {
-        setError(`No PRs found for ${repoOwner}/${repoName} matching the criteria.`);
+        // setListError (or just let the UI handle "No PRs found")
       }
     } catch (err: any) {
-      setError(err.message || "Failed to fetch PR list.");
+      setListError(err.message || "Failed to fetch PR list.");
     } finally {
-      setIsLoading(false);
+      setIsLoadingList(false);
     }
-  }, [repoOwner, repoName, startDate, endDate, prStateFilter]);
+  }, [listRepoOwner, listRepoName, listStartDate, listEndDate, listPrStateFilter]);
 
-  // Optional: Fetch PRs on initial load if desired
-  // useEffect(() => {
-  //   fetchPRs();
-  // }, []); // Empty dependency array means it runs once on mount
+  useEffect(() => { // Auto-fetch on initial load
+    fetchPRList();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleListFormSubmit = (e: FormEvent) => {
     e.preventDefault();
-    fetchPRs();
+    fetchPRList();
   };
 
+  const handleAnalyzeListedPR = async (prNumber: number, owner: string, repo: string) => {
+    setLoadingAnalyses(prev => ({ ...prev, [prNumber]: true }));
+    setErrorAnalyses(prev => ({ ...prev, [prNumber]: null }));
+    setAnalyses(prev => ({ ...prev, [prNumber]: null })); // Clear previous result for this PR
+
+    try {
+      const result = await analyzePullRequest(prNumber, owner, repo);
+      setAnalyses(prev => ({ ...prev, [prNumber]: result }));
+      setExpandedAnalyses(prev => ({ ...prev, [prNumber]: true })); // Expand on success
+    } catch (err: any) {
+      setErrorAnalyses(prev => ({ ...prev, [prNumber]: err.message || "Failed to analyze PR." }));
+      setExpandedAnalyses(prev => ({ ...prev, [prNumber]: true })); // Still expand to show error
+    } finally {
+      setLoadingAnalyses(prev => ({ ...prev, [prNumber]: false }));
+    }
+  };
+
+  const toggleAnalysisDisplay = (prNumber: number) => {
+    setExpandedAnalyses(prev => ({ ...prev, [prNumber]: !prev[prNumber] }));
+  };
+
+  const handleAnalyzeSinglePR = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!singlePrOwner.trim() || !singlePrRepo.trim() || !singlePrNumber.trim()) {
+        setSingleAnalysisError("Owner, Repository, and PR Number are required.");
+        return;
+    }
+    const prNum = parseInt(singlePrNumber, 10);
+    if (isNaN(prNum)) {
+        setSingleAnalysisError("PR Number must be an integer.");
+        return;
+    }
+
+    setIsLoadingSingleAnalysis(true);
+    setSingleAnalysisError(null);
+    setSinglePrAnalysisResult(null);
+    try {
+        const result = await analyzePullRequest(prNum, singlePrOwner.trim(), singlePrRepo.trim());
+        setSinglePrAnalysisResult(result);
+    } catch (err: any) {
+        setSingleAnalysisError(err.message || "Failed to analyze PR.");
+    } finally {
+        setIsLoadingSingleAnalysis(false);
+    }
+  };
+
+
   return (
-    <div className="p-4 md:p-6 space-y-6 bg-gray-50 min-h-screen">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-gray-800 flex items-center">
-          <ListChecks className="w-7 h-7 mr-3 text-blue-600" />
-          Recent Pull Requests
+    <div className="p-4 md:p-6 lg:p-8 space-y-8 bg-gray-100 min-h-screen">
+      <div className="flex flex-col sm:flex-row items-center justify-between pb-4 border-b border-gray-300">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center mb-2 sm:mb-0">
+          <ListChecks className="w-8 h-8 mr-3 text-blue-600" />
+          Pull Request Center
         </h1>
         <Link href="/chat" className="text-sm text-blue-600 hover:text-blue-700 hover:underline transition-colors duration-150">
           &larr; Back to Chat
         </Link>
       </div>
 
+      {/* Section for General Single PR Analysis Tool */}
       <div className="bg-white p-6 rounded-xl shadow-lg">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+        <h2 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
+            <FileText className="w-6 h-6 mr-2 text-indigo-600" />
+            Analyze a Specific Pull Request
+        </h2>
+        <form onSubmit={handleAnalyzeSinglePR} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div>
+                    <label htmlFor="singlePrOwner" className="block text-sm font-medium text-gray-700 mb-1">Owner</label>
+                    <input type="text" id="singlePrOwner" value={singlePrOwner} onChange={e => setSinglePrOwner(e.target.value)} placeholder="e.g., facebook" className="input w-full"/>
+                </div>
+                <div>
+                    <label htmlFor="singlePrRepo" className="block text-sm font-medium text-gray-700 mb-1">Repository</label>
+                    <input type="text" id="singlePrRepo" value={singlePrRepo} onChange={e => setSinglePrRepo(e.target.value)} placeholder="e.g., react" className="input w-full"/>
+                </div>
+                <div>
+                    <label htmlFor="singlePrNumber" className="block text-sm font-medium text-gray-700 mb-1">PR Number</label>
+                    <input type="number" id="singlePrNumber" value={singlePrNumber} onChange={e => setSinglePrNumber(e.target.value)} placeholder="e.g., 33165" className="input w-full"/>
+                </div>
+                <button type="submit" className="btn btn-indigo w-full flex items-center justify-center group" disabled={isLoadingSingleAnalysis}>
+                    {isLoadingSingleAnalysis ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Sparkles className="w-5 h-5 mr-2 group-hover:text-yellow-300 transition-colors" />}
+                    {isLoadingSingleAnalysis ? 'Analyzing...' : 'Analyze PR'}
+                </button>
+            </div>
+            {singleAnalysisError && (
+                <div className="mt-3 p-3 text-sm text-red-700 bg-red-100 border border-red-200 rounded-md">
+                    {singleAnalysisError}
+                </div>
+            )}
+            {singlePrAnalysisResult && !isLoadingSingleAnalysis && (
+                <PRAnalysisDisplay analysis={singlePrAnalysisResult} />
+            )}
+        </form>
+      </div>
+
+
+      {/* Section for Listing PRs */}
+      <div className="bg-white p-6 rounded-xl shadow-lg">
+        <h2 className="text-xl font-semibold text-gray-700 mb-4">Filter Recent Pull Requests</h2>
+        <form onSubmit={handleListFormSubmit} className="space-y-4">
+          {/* ... Form inputs for listRepoOwner, listRepoName, listPrStateFilter, listStartDate, listEndDate ... (similar to previous response) ... */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 items-end">
             <div>
-              <label htmlFor="prRepoOwnerPage" className="block text-sm font-medium text-gray-700 mb-1">
-                Owner
-              </label>
-              <input
-                type="text"
-                id="prRepoOwnerPage"
-                value={repoOwner}
-                onChange={(e) => setRepoOwner(e.target.value)}
-                placeholder="e.g., facebook"
-                className="input w-full"
-              />
+              <label htmlFor="listRepoOwner" className="block text-sm font-medium text-gray-700 mb-1">Owner</label>
+              <input type="text" id="listRepoOwner" value={listRepoOwner} onChange={(e) => setListRepoOwner(e.target.value)} placeholder="e.g., facebook" className="input w-full"/>
             </div>
             <div>
-              <label htmlFor="prRepoNamePage" className="block text-sm font-medium text-gray-700 mb-1">
-                Repository
-              </label>
-              <input
-                type="text"
-                id="prRepoNamePage"
-                value={repoName}
-                onChange={(e) => setRepoName(e.target.value)}
-                placeholder="e.g., react"
-                className="input w-full"
-              />
+              <label htmlFor="listRepoName" className="block text-sm font-medium text-gray-700 mb-1">Repository</label>
+              <input type="text" id="listRepoName" value={listRepoName} onChange={(e) => setListRepoName(e.target.value)} placeholder="e.g., react" className="input w-full"/>
             </div>
             <div>
-              <label htmlFor="prStateFilter" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                <Filter className="w-4 h-4 mr-1 text-gray-500" /> State
-              </label>
-              <select
-                id="prStateFilter"
-                value={prStateFilter}
-                onChange={(e) => setPrStateFilter(e.target.value)}
-                className="input w-full"
-              >
-                <option value="all">All</option>
-                <option value="open">Open</option>
-                <option value="closed">Closed (Not Merged)</option>
-                <option value="merged">Merged</option>
+              <label htmlFor="listPrStateFilter" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                <Filter className="w-4 h-4 mr-1.5 text-gray-500" /> State</label>
+              <select id="listPrStateFilter" value={listPrStateFilter} onChange={(e) => setListPrStateFilter(e.target.value)} className="input w-full appearance-none">
+                <option value="all">All</option><option value="open">Open</option><option value="closed">Closed (Not Merged)</option><option value="merged">Merged</option>
               </select>
             </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
             <div>
-              <label htmlFor="prStartDate" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                <CalendarDays className="w-4 h-4 mr-1 text-gray-500" /> Start Date
-              </label>
-              <input
-                type="date"
-                id="prStartDate"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="input w-full"
-                max={getTodayDateString()} // Optional: prevent future start dates
-              />
+              <label htmlFor="listStartDate" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                <CalendarDays className="w-4 h-4 mr-1.5 text-gray-500" /> Start Date</label>
+              <input type="date" id="listStartDate" value={listStartDate} onChange={(e) => setListStartDate(e.target.value)} className="input w-full" max={listEndDate || getTodayDateString()}/>
             </div>
             <div>
-              <label htmlFor="prEndDate" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                <CalendarDays className="w-4 h-4 mr-1 text-gray-500" /> End Date
-              </label>
-              <input
-                type="date"
-                id="prEndDate"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="input w-full"
-                min={startDate} // Optional: end date cannot be before start date
-                max={getTodayDateString()} // Optional: prevent future end dates
-              />
+              <label htmlFor="listEndDate" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                <CalendarDays className="w-4 h-4 mr-1.5 text-gray-500" /> End Date</label>
+              <input type="date" id="listEndDate" value={listEndDate} onChange={(e) => setListEndDate(e.target.value)} className="input w-full" min={listStartDate} max={getTodayDateString()}/>
             </div>
-            <div className="lg:col-start-4"> {/* Aligns button to the right on larger screens */}
-              <button
-                type="submit"
-                className="btn btn-primary w-full flex items-center justify-center transition-all duration-150 ease-in-out transform hover:scale-105 mt-3 md:mt-0"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                ) : (
-                  <Search className="w-5 h-5 mr-2" />
-                )}
-                {isLoading ? 'Fetching...' : 'Fetch PRs'}
+            <div className="lg:pt-6">
+              <button type="submit" className="btn btn-primary w-full flex items-center justify-center group" disabled={isLoadingList}>
+                {isLoadingList ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Search className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />}
+                {isLoadingList ? 'Fetching List...' : 'Fetch List'}
               </button>
             </div>
           </div>
         </form>
       </div>
 
-      {/* ... (Loading, Error, PR List display sections as before, no changes needed there) ... */}
-       {isLoading && (
-        <div className="flex justify-center items-center py-10">
-          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-          <p className="ml-3 text-gray-600">Loading Pull Requests...</p>
+      {isLoadingList && (
+        <div className="flex flex-col justify-center items-center py-12 text-center">
+          <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-3" />
+          <p className="text-gray-600 font-medium">Loading Pull Request List...</p>
         </div>
       )}
 
-      {error && !isLoading && (
-        <div className="my-4 flex items-center rounded-lg border-l-4 border-red-500 bg-red-100 p-4 text-red-700 shadow-md">
-          <AlertCircle className="mr-3 h-6 w-6 flex-shrink-0" />
-          <p className="font-medium">{error}</p>
+      {listError && !isLoadingList && (
+        <div className="my-4 flex items-start rounded-lg border-l-4 border-red-500 bg-red-100 p-4 text-red-700 shadow-md">
+          <AlertCircle className="mr-3 h-6 w-6 flex-shrink-0 mt-0.5" />
+          <div><p className="font-semibold">Error Fetching List</p><p className="text-sm">{listError}</p></div>
         </div>
       )}
 
-      {!isLoading && !error && hasFetched && prList.length > 0 && (
+      {!isLoadingList && !listError && hasFetchedList && prList.length > 0 && (
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <h2 className="text-lg font-semibold text-gray-800 p-4 border-b border-gray-200">
-            Found {prList.length} PR(s) for <span className="font-bold text-blue-600">{repoOwner}/{repoName}</span>
-            {startDate && endDate && ` (from ${startDate} to ${endDate})`}
-            {prStateFilter !== "all" && ` - State: ${prStateFilter}`}
-          </h2>
-          <ul className="divide-y divide-gray-200 max-h-[calc(100vh-20rem)] overflow-y-auto">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-800">
+              Showing {prList.length} Pull Request(s)
+            </h2>
+            {/* ... Sub-header for list filters ... */}
+          </div>
+          <ul className="divide-y divide-gray-200">
             {prList.map((pr) => (
-              <li key={pr.number} className="p-4 hover:bg-blue-50 transition-colors duration-150 ease-in-out">
-                <div className="flex items-center justify-between">
+              <li key={pr.number} className="p-4 hover:bg-gray-50/50 transition-colors duration-150 ease-in-out">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <a
-                      href={pr.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-base font-semibold text-blue-600 hover:text-blue-700 hover:underline truncate block"
-                      title={pr.title}
-                    >
+                    <a href={pr.url} target="_blank" rel="noopener noreferrer" className="text-base font-semibold text-blue-600 hover:text-blue-700 hover:underline truncate block" title={pr.title}>
                       #{pr.number}: {pr.title}
                     </a>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Created: {new Date(pr.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                       <span className="mx-1.5 text-gray-300">|</span>
+                       State: {' '}
+                      <span className={`px-2 py-0.5 inline-flex text-xs leading-tight font-semibold rounded-full ${
+                        pr.state === 'open' ? 'bg-green-100 text-green-800' :
+                        pr.state === 'closed' ? 'bg-red-100 text-red-800' :
+                        pr.state === 'merged' ? 'bg-purple-100 text-purple-800' :
+                        'bg-gray-100 text-gray-800'}`}>
+                        {pr.state.charAt(0).toUpperCase() + pr.state.slice(1)}
+                      </span>
+                    </p>
                   </div>
-                  <a
-                    href={pr.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="ml-4 p-1 text-gray-500 hover:text-blue-600 transition-colors duration-150 ease-in-out"
-                    title="View PR on GitHub"
-                  >
-                    <ExternalLink className="h-5 w-5" />
-                  </a>
+                  <div className="flex items-center gap-2 mt-2 sm:mt-0 flex-shrink-0">
+                    <button
+                      onClick={() => {
+                        if (!expandedAnalyses[pr.number] && !analyses[pr.number]) { // Fetch only if not expanded and no data yet
+                             handleAnalyzeListedPR(pr.number, listRepoOwner, listRepoName); // Use owner/name from list form
+                        } else {
+                            toggleAnalysisDisplay(pr.number); // Just toggle if data exists or was attempted
+                        }
+                      }}
+                      className="btn btn-outline-indigo text-xs px-3 py-1.5 flex items-center group"
+                      disabled={!!loadingAnalyses[pr.number]}
+                    >
+                      {loadingAnalyses[pr.number] ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> :
+                       expandedAnalyses[pr.number] ? <ChevronUp className="w-4 h-4 mr-1.5" /> : <ChevronDown className="w-4 h-4 mr-1.5" />
+                      }
+                      {loadingAnalyses[pr.number] ? 'Analyzing...' : (expandedAnalyses[pr.number] ? 'Hide' : 'Analyze')}
+                    </button>
+                    <a href={pr.url} target="_blank" rel="noopener noreferrer" className="p-1.5 text-gray-400 hover:text-blue-600 rounded-full hover:bg-blue-100 transition-all" title="View on GitHub">
+                      <ExternalLink className="h-5 w-5" />
+                    </a>
+                  </div>
                 </div>
-                <p className="mt-1 text-sm text-gray-600">
-                  State: {' '}
-                  <span
-                    className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      pr.state === 'open' ? 'bg-green-100 text-green-700' :
-                      pr.state === 'closed' ? 'bg-red-100 text-red-700' :
-                      pr.state === 'merged' ? 'bg-purple-100 text-purple-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}
-                  >
-                    {pr.state}
-                  </span>
-                  <span className="mx-2 text-gray-400">|</span>
-                  Created: {new Date(pr.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                </p>
+                {expandedAnalyses[pr.number] && (
+                  <div className="mt-2 pl-2">
+                    {loadingAnalyses[pr.number] && <p className="text-sm text-gray-500 py-2 flex items-center"><Loader2 className="w-4 h-4 mr-2 animate-spin"/>Loading analysis...</p>}
+                    {errorAnalyses[pr.number] && <p className="text-sm text-red-600 p-2 bg-red-50 rounded-md">{errorAnalyses[pr.number]}</p>}
+                    {analyses[pr.number] && !loadingAnalyses[pr.number] && !errorAnalyses[pr.number] && (
+                      <PRAnalysisDisplay analysis={analyses[pr.number]!} />
+                    )}
+                  </div>
+                )}
               </li>
             ))}
           </ul>
         </div>
       )}
 
-      {!isLoading && hasFetched && prList.length === 0 && !error && (
-         <div className="my-4 text-center text-gray-500 py-10 bg-white rounded-xl shadow-lg">
-            <ListChecks className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-            No pull requests found matching your criteria.
+      {!isLoadingList && hasFetchedList && prList.length === 0 && !listError && (
+         <div className="my-4 text-center text-gray-500 py-12 bg-white rounded-xl shadow-lg">
+            {/* ... No PRs found message ... */}
+            <ListChecks className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+            <p className="text-lg font-medium">No Pull Requests Found</p>
+            <p className="text-sm">Try adjusting your filters or date range.</p>
         </div>
       )}
     </div>
   );
 }
+
+// Add/ensure these utility classes in your globals.css or your Tailwind config:
+// .input { @apply block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 transition-all duration-150 ease-in-out; }
+// .btn { @apply inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 cursor-pointer; }
+// .btn-primary { @apply bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 disabled:bg-blue-400; }
+// .btn-indigo { @apply bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500 disabled:bg-indigo-400; }
+// .btn-outline-indigo { @apply bg-transparent border-indigo-600 text-indigo-700 hover:bg-indigo-50 focus:ring-indigo-500 disabled:border-gray-300 disabled:text-gray-400; }

@@ -134,7 +134,8 @@ export async function getTeamTimeline(
 export interface PRAnalysisResponse {
   prSummary: string;
   contributionAnalysis: string;
-  linkedIssuesSummary?: string | null; // Match Optional[str]
+  linkedIssuesSummary?: string | null;
+  discussionSummary: string;
 }
 
 export async function analyzePullRequest(

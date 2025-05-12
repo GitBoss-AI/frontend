@@ -1,6 +1,12 @@
+import { getToken } from './auth'
+
+
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ||
   "https://gitboss-ai.emirbosnak.com/api-dev";
+
+const AGENT_API_BASE = process.env.NEXT_PUBLIC_AGENT_API_BASE || "http://localhost:8003"; // Example: Use env var or default
+
 
 // Repository endpoints
 export async function addRepository(userId: number, repoUrl: string) {
@@ -121,5 +127,115 @@ export async function getTeamTimeline(
     throw new Error(data.error || "Failed to fetch team timeline");
   }
 
+  return data;
+}
+
+
+export interface PRAnalysisResponse {
+  prSummary: string;
+  contributionAnalysis: string;
+  linkedIssuesSummary?: string | null; // Match Optional[str]
+}
+
+export async function analyzePullRequest(
+  prNumber: number,
+  repoOwner: string,
+  repoName: string
+): Promise<PRAnalysisResponse> { // Add return type
+  const token = getToken();
+  if (!token) {
+    throw new Error("Authentication token not found.");
+  }
+
+  const url = new URL(`${AGENT_API_BASE}/analyze-pr/`);
+  url.searchParams.append('pr_number', String(prNumber));
+  url.searchParams.append('repo_owner', repoOwner);
+  url.searchParams.append('repo_name', repoName);
+
+  const response = await fetch(url.toString(), {
+    method: 'GET', // Or POST if you change the backend endpoint
+    headers: {
+      'Authorization': `Bearer ${token}`, // Add the JWT token
+      'Accept': 'application/json',
+    },
+    // If using POST, add body: JSON.stringify({ pr_number: ..., ... })
+    // and 'Content-Type': 'application/json' header
+  });
+
+  if (!response.ok) {
+    let errorData;
+    try {
+      errorData = await response.json();
+    } catch (e) {
+      // Handle cases where error response is not JSON
+      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+    }
+    // Use detail field from FastAPI's HTTPException if available
+    throw new Error(errorData.detail || `API request failed with status ${response.status}`);
+  }
+
+  const data: PRAnalysisResponse = await response.json();
+  return data;
+}
+
+export interface PRListItemAPI {
+  number: number;
+  title: string;
+  state: string;
+  url: string;
+  created_at: string; // Dates from API will be ISO strings
+}
+
+export interface PRListItemAPI {
+  number: number;
+  title: string;
+  state: string;
+  url: string;
+  created_at: string; // Dates from API will be ISO strings
+}
+
+export async function getRepositoryPRs(
+  repoOwner: string,
+  repoName: string,
+  startDate?: string, // Optional YYYY-MM-DD
+  endDate?: string,   // Optional YYYY-MM-DD
+  state: string = "all" // Add state parameter
+): Promise<PRListItemAPI[]> {
+  const token = getToken();
+  if (!token) {
+    throw new Error("Authentication token not found.");
+  }
+
+  const url = new URL(`${AGENT_API_BASE}/repository-prs/`);
+  url.searchParams.append('repo_owner', repoOwner);
+  url.searchParams.append('repo_name', repoName);
+  if (startDate) {
+    url.searchParams.append('start_date', startDate);
+  }
+  if (endDate) {
+    url.searchParams.append('end_date', endDate);
+  }
+  url.searchParams.append('state', state);
+
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    let errorData;
+    try {
+      errorData = await response.json();
+    } catch (e) {
+      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+    }
+    throw new Error(errorData.detail || `API request failed with status ${response.status}`);
+  }
+
+  const data: PRListItemAPI[] = await response.json();
   return data;
 }

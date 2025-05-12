@@ -8,7 +8,7 @@ This is the frontend codebase for the GitBoss AI project. It is built using Next
 
 To ensure the frontend always talks to the correct backend during development, use the following environment variable:
 
-```NEXT_PUBLIC_API_URL=https://gitboss-ai.emirbosnak.com/api-dev```
+`NEXT_PUBLIC_API_BASE=https://gitboss-ai.emirbosnak.com/api-dev`
 
 This ensures that:
 
@@ -27,14 +27,14 @@ Do not point to localhost or another API unless explicitly testing locally.
 
 - When a PR is opened to `dev`, a GitHub Actions workflow will:
   - Attempt to build the project
--  **Only merge if the build passes** — if it fails, the server will not update and the site will break.
+- **Only merge if the build passes** — if it fails, the server will not update and the site will break.
 
 ## Automatic Dev Deployment
 
 - Once a PR is merged into `dev`, the dev server will automatically pull the latest code and restart.
 - The development version of the site is available at:
 
-   **https://gitboss-ai.emirbosnak.com/dev**
+  **https://gitboss-ai.emirbosnak.com/dev**
 
 - This happens within ~2 minutes after merging (via polling-based CI/CD).
 

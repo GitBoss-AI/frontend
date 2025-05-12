@@ -1,33 +1,33 @@
 /**
  * Authentication utilities for JWT storage and WebSocket connections
  */
-import { getItem, setItem, removeItem } from '@/utils/storage';
+import { getItem, setItem, removeItem } from "@/utils/storage";
 
-const WEBSOCKET_URL = 'wss://gitboss-ai.emirbosnak.com/ws-dev';
+const WEBSOCKET_URL = "wss://gitboss-ai.emirbosnak.com/ws-dev";
 const JWT_STRUCTURE = {
   HEADER_INDEX: 0,
   PAYLOAD_INDEX: 1,
-  SIGNATURE_INDEX: 2
+  SIGNATURE_INDEX: 2,
 };
 
 // Store JWT token in localStorage
 export const storeToken = (token: string, expires: number): void => {
-  setItem('auth_token', token);
-  setItem('token_expiry', expires.toString());
-  setItem('is_authenticated', 'true');
+  setItem("auth_token", token);
+  setItem("token_expiry", expires.toString());
+  setItem("is_authenticated", "true");
 };
 
 // Clear authentication data on logout
 export const clearToken = (): void => {
-  removeItem('auth_token');
-  removeItem('token_expiry');
-  setItem('is_authenticated', 'false');
+  removeItem("auth_token");
+  removeItem("token_expiry");
+  setItem("is_authenticated", "false");
 };
 
 // Get stored token
 export const getToken = (): string | null => {
-  const token = getItem('auth_token');
-  const expiry = Number(getItem('token_expiry') || '0');
+  const token = getItem("auth_token");
+  const expiry = Number(getItem("token_expiry") || "0");
 
   // Check if token is expired
   const now = Math.floor(Date.now() / 1000); // Current time in seconds
@@ -65,11 +65,12 @@ interface TokenUser {
 // Extract user data from the JWT token
 export const getUserFromToken = (): TokenUser | null => {
   const token = getToken();
+  console.log("Token:", token);
   if (!token) return null;
 
   try {
     // JWT tokens consist of three parts: header, payload, and signature
-    const parts = token.split('.');
+    const parts = token.split(".");
 
     // Verify the token has all three required parts
     if (parts.length !== 3) return null;
@@ -79,14 +80,18 @@ export const getUserFromToken = (): TokenUser | null => {
     const decodedPayload = atob(payloadBase64);
     const payload = JSON.parse(decodedPayload);
 
+    console.log("Decoded Payload:", payload);
+    console.log("User ID:", payload.subject);
+    console.log("Username:", payload.username);
+
     return {
       // 'sub' is the standard JWT claim for the subject (user ID)
-      id: payload.sub,
+      id: payload.subject,
       // Username might be included in custom claims
-      username: payload.username || 'Unknown'
+      username: payload.username || "Unknown",
     };
   } catch (error) {
-    console.error('Failed to parse JWT token:', error);
+    console.error("Failed to parse JWT token:", error);
     return null;
   }
 };

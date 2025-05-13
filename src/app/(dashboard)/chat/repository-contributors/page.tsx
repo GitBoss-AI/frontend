@@ -64,7 +64,7 @@ export default function RepositoryContributorsPage() {
           className="flex items-center text-sm text-blue-600 hover:text-blue-700 hover:underline transition-colors duration-150"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
-          Back to Chat Assistant
+          Back to AI Assistant
         </Link>
       </div>
 

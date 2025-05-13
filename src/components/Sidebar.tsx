@@ -13,7 +13,7 @@ import {
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Analytics", href: "/analytics", icon: BarChart },
-  { label: "Chat", href: "/chat", icon: MessageSquare },
+  { label: "AI Assistant", href: "/chat", icon: MessageSquare },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 

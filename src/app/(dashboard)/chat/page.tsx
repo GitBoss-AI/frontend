@@ -4,7 +4,6 @@
 import React, { useState, useEffect } from "react";
 import { analyzePullRequest, PRAnalysisResponse } from '@/utils/api';
 import { useUser } from "@/contexts/UserContext";
-import { useWebSocketChat, Message as ChatMessage } from '@/hooks/useWebSocketChat';
 import {
   RefreshCw,
   MessageSquare,
@@ -23,16 +22,6 @@ const quickPrompts = [
 ];
 
 export default function ChatPage() {
-  const { user } = useUser();
-  const {
-    messages: wsMessages,
-    sendMessage,
-    isConnected,
-    error: wsError,
-    isTyping: isAiTyping
-  } = useWebSocketChat();
-
-  const [chatDisplayMessages, setChatDisplayMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
 
   // State for "Test Single PR Analysis" tool
@@ -42,54 +31,6 @@ export default function ChatPage() {
   const [analysisResult, setAnalysisResult] = useState<PRAnalysisResponse | null>(null);
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setChatDisplayMessages(wsMessages);
-  }, [wsMessages]);
-
-  useEffect(() => {
-    if (isConnected && chatDisplayMessages.length === 0 && !isAiTyping) {
-      const initialMessage: ChatMessage = {
-        id: `ai_greeting_${Date.now()}`,
-        content: "Hello! I'm your GitBoss AI assistant. How can I assist you today? Try asking a question or using a quick prompt.",
-        sender: "GitBoss AI",
-        timestamp: Date.now(),
-        isFromUser: false,
-      };
-      setChatDisplayMessages([initialMessage]);
-    }
-  }, [isConnected, chatDisplayMessages.length, isAiTyping]);
-
-  const handleSendMessage = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!input.trim() || !isConnected) return;
-    const userMessage: ChatMessage = {
-      id: `user_${Date.now()}`,
-      content: input.trim(),
-      sender: user?.username || "User",
-      timestamp: Date.now(),
-      isFromUser: true,
-    };
-    setChatDisplayMessages(prev => [...prev, userMessage]);
-    sendMessage(input.trim());
-    setInput("");
-  };
-
-  const handleQuickPrompt = (prompt: string) => {
-    if (!isConnected) {
-      alert("Not connected. Please wait or check connection.");
-      return;
-    }
-    const userMessage: ChatMessage = {
-      id: `user_prompt_${Date.now()}`,
-      content: prompt,
-      sender: user?.username || "User",
-      timestamp: Date.now(),
-      isFromUser: true,
-    };
-    setChatDisplayMessages(prev => [...prev, userMessage]);
-    sendMessage(prompt);
-  };
 
   const handleAnalyzePrViaApi = async () => {
     setIsLoadingAnalysis(true);
@@ -138,57 +79,6 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* WebSocket Connection Status (as before) */}
-        {wsError && (
-          <div className="mb-4 p-3 text-sm text-red-700 bg-red-100 border border-red-300 rounded-md">
-            Connection Error: {wsError}. Please refresh.
-          </div>
-        )}
-         {!isConnected && !wsError && (
-           <div className="mb-4 p-3 text-sm text-yellow-700 bg-yellow-100 border border-yellow-300 rounded-md">
-            Connecting to AI assistant...
-          </div>
-        )}
-
-        {/* Quick Prompts (as before) */}
-        <div className="mb-4">
-          <p className="text-sm font-medium text-gray-600 mb-2">Suggestions:</p>
-          <div className="flex flex-wrap gap-2">
-            {quickPrompts.map((prompt, index) => (
-              <button
-                key={index}
-                onClick={() => handleQuickPrompt(prompt)}
-                className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-xs sm:text-sm hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all duration-150 ease-in-out"
-                disabled={!isConnected}
-                title={!isConnected ? "Connect to AI to use prompts" : prompt}
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Chat Messages Display (as before) */}
-        <div className="flex-1 space-y-4 overflow-y-auto mb-4 p-4 bg-white rounded-xl shadow-lg border border-gray-200 min-h-[300px] max-h-[55vh]">
-         {chatDisplayMessages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] rounded-xl px-4 py-3 shadow-sm ${msg.isFromUser ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'}`}>
-                <p className="text-sm whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: msg.content.replace(/\n/g, '<br />') }}></p>
-                <div className={`mt-1.5 text-xs opacity-70 ${msg.isFromUser ? 'text-blue-200' : 'text-gray-500'} text-right`}>
-                  {msg.sender} - {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </div>
-              </div>
-            </div>
-          ))}
-          {isAiTyping && ( <div className="flex justify-start"><div className="max-w-[85%] rounded-xl px-4 py-3 shadow-sm bg-gray-100 text-gray-800"><div className="flex items-center space-x-1.5"><div className="h-2 w-2 animate-pulse rounded-full bg-gray-400"></div><div className="h-2 w-2 animate-pulse rounded-full bg-gray-400 [animation-delay:0.2s]"></div><div className="h-2 w-2 animate-pulse rounded-full bg-gray-400 [animation-delay:0.4s]"></div><span className="ml-1 text-xs text-gray-500">GitBoss AI is typing...</span></div></div></div>)}
-        </div>
-
-        {/* Chat Input Form (as before) */}
-        <form onSubmit={handleSendMessage} className="flex items-center gap-2 pt-4 border-t border-gray-200">
-           <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder={isConnected ? "Ask GitBoss AI..." : "Connecting..."} className="input flex-1 !text-sm" disabled={!isConnected || isAiTyping} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { handleSendMessage(); e.preventDefault();}}}/>
-          <button type="submit" className="btn btn-primary p-2.5" disabled={!isConnected || isAiTyping || !input.trim()} title="Send"><Send className="w-5 h-5" /></button>
-        </form>
-
         {/* Test Single PR Analysis Section (as before) */}
         <div className="mt-8 p-6 border border-gray-200 rounded-xl bg-white shadow-lg space-y-6">
             <div>
@@ -222,9 +112,3 @@ export default function ChatPage() {
     </div>
   );
 }
-
-// Ensure utility classes for .input, .btn, .btn-primary, .btn-outline-primary, .btn-indigo, .btn-secondary
-// are defined in your globals.css or Tailwind config.
-// For example:
-// .btn-outline-primary { @apply bg-transparent border-2 border-blue-600 text-blue-700 hover:bg-blue-100 focus:ring-blue-500 disabled:border-gray-300 disabled:text-gray-400; }
-// .btn-indigo { @apply bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500 disabled:bg-indigo-400; }

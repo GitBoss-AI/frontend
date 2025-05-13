@@ -141,7 +141,7 @@ export default function RecentPRsPage() {
           Pull Request Center
         </h1>
         <Link href="/chat" className="text-sm text-blue-600 hover:text-blue-700 hover:underline transition-colors duration-150">
-          &larr; Back to Chat
+          &larr; Back to AI Assistant
         </Link>
       </div>
 

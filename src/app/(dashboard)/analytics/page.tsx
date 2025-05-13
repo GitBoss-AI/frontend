@@ -89,9 +89,24 @@ export default function AnalyticsPage() {
 
   const fetchAll = () => {
     sessionStorage.removeItem("recentBuilds");
+    sessionStorage.setItem("hasFetchedBuildsOnce", "true");
     setHasFetchedOnce(true);
     fetchBuilds();
   };
+
+  useEffect(() => {
+    const fetchedFlag = sessionStorage.getItem("hasFetchedBuildsOnce");
+    if (fetchedFlag === "true") {
+      setHasFetchedOnce(true);
+    }
+  }, []);
+
+  const totalSuccessRate = useMemo(() => {
+    if (!builds.length) return null;
+    const total = builds.length;
+    const success = builds.filter(b => b.status === "success").length;
+    return Math.round((success / total) * 100);
+  }, [builds]);
 
   const dailyMetrics = useMemo(() => {
     const map = new Map<string, { success: number; total: number; durationTotal: number }>();
@@ -163,10 +178,14 @@ export default function AnalyticsPage() {
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-gray-500 text-sm">Build Success Rate</h3>
-                  <p className="text-2xl font-bold">{dailyMetrics.length ? `${dailyMetrics.at(-1)!.successRate}%` : "N/A"}</p>
-                  <span className="text-green-500 text-xs">Calculated from {builds.length} builds</span>
+                  <p className="text-2xl font-bold">
+                    {totalSuccessRate !== null ? `${totalSuccessRate}%` : "N/A"}
+                  </p>
+                  <span className="text-green-500 text-xs">
+                    Calculated from {builds.length} builds
+                  </span>
                 </div>
-                <Info className="w-5 h-5 text-gray-400" />
+                <Info className="w-5 h-5 text-gray-400"/>
               </div>
             </div>
 

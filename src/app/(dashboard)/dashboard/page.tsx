@@ -16,7 +16,7 @@ import {
 import {
   getRepoMonthlyStats,
   getTeamTimeline,
-  getRecentActivity,
+  getRecentActivity, ContributorStats, getTopContributorStats,
 } from "@/utils/api";
 import { Info } from "lucide-react";
 
@@ -75,7 +75,7 @@ function getRangeParam(timeWindow: string): "week" | "month" | "quarter" {
 }
 
 export default function DashboardPage() {
-  const [timeWindow, setTimeWindow] = useState("This Month");
+  const [timeWindow, setTimeWindow] = useState("This Week");
   const [selectedRepo, setSelectedRepo] = useState(predefinedRepos[0]);
   const [repoStats, setRepoStats] = useState({
     commits: 0,
@@ -87,11 +87,14 @@ export default function DashboardPage() {
     issues: 0,
     issuesChange: "—",
   });
+  const [topContributors, setTopContributors] = useState<ContributorStats[]>([]);
 
   const [timelineData, setTimelineData] = useState(mockTimelineData);
   const [developerData, setDeveloperData] = useState(mockDeveloperData);
   const [recentActivity, setRecentActivity] = useState(mockRecentActivity);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [isLoadingContributors, setIsLoadingContributors] = useState(false);
+  const [sortKey, setSortKey] = useState<"commits" | "prs" | "reviews">("commits");
 
   const [chatHistory, setChatHistory] = useState([
     {
@@ -105,15 +108,13 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchStats = async () => {
       setIsLoadingStats(true);
+      setIsLoadingContributors(true);
       try {
         const range = getRangeParam(timeWindow);
-        console.log("📡 Fetching stats for:", selectedRepo.label, "with range:", range);
-
-        const stats = await getRepoMonthlyStats(
-          selectedRepo.owner,
-          selectedRepo.repo,
-          range
-        );
+        const [stats, contributors] = await Promise.all([
+          getRepoMonthlyStats(selectedRepo.owner, selectedRepo.repo, range),
+          getTopContributorStats(selectedRepo.owner, selectedRepo.repo, range),
+        ]);
 
         setRepoStats({
           commits: stats.commits.count,
@@ -125,10 +126,13 @@ export default function DashboardPage() {
           issues: stats.issues.count,
           issuesChange: stats.issues.change,
         });
+
+        setTopContributors(contributors);
       } catch (err) {
-        console.error("❌ Failed to load repo stats", err);
+        console.error("❌ Failed to load data", err);
       } finally {
         setIsLoadingStats(false);
+        setIsLoadingContributors(false);
       }
     };
 
@@ -205,35 +209,35 @@ export default function DashboardPage() {
         </h2>
         {/* Stats Cards */}
         {isLoadingStats ? (
-          <div className="flex justify-center py-10">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
-          </div>
+            <div className="flex justify-center py-10">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
+            </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {[
-              { label: "Total Commits", value: repoStats.commits, change: repoStats.commitsChange },
-              { label: "Open PRs", value: repoStats.open_prs, change: repoStats.prsChange },
-              { label: "Code Reviews", value: repoStats.reviews, change: repoStats.reviewsChange },
-              { label: "Active Issues", value: repoStats.issues, change: repoStats.issuesChange },
-            ].map((stat, index) => (
-              <div className="card" key={index}>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-gray-500 text-sm">{stat.label}</h3>
-                    <p className="text-2xl font-bold">{stat.value}</p>
-                    <span
-                      className={`text-xs ${
-                        stat.change.startsWith("-") ? "text-red-500" : "text-green-500"
-                      }`}
-                    >
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {[
+                {label: "Total Commits", value: repoStats.commits, change: repoStats.commitsChange},
+                {label: "Open PRs", value: repoStats.open_prs, change: repoStats.prsChange},
+                {label: "Code Reviews", value: repoStats.reviews, change: repoStats.reviewsChange},
+                {label: "Active Issues", value: repoStats.issues, change: repoStats.issuesChange},
+              ].map((stat, index) => (
+                  <div className="card" key={index}>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-gray-500 text-sm">{stat.label}</h3>
+                        <p className="text-2xl font-bold">{stat.value}</p>
+                        <span
+                            className={`text-xs ${
+                                stat.change.startsWith("-") ? "text-red-500" : "text-green-500"
+                            }`}
+                        >
                       {stat.change} from last period
                     </span>
+                      </div>
+                      <Info className="w-5 h-5 text-gray-400"/>
+                    </div>
                   </div>
-                  <Info className="w-5 h-5 text-gray-400" />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
         )}
 
         {/* Charts */}
@@ -260,80 +264,104 @@ export default function DashboardPage() {
           </div>
 
           <div className="card">
-            <h3 className="font-medium mb-4">Developer Comparison</h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                    data={developerData}
-                    margin={{top: 5, right: 30, left: 0, bottom: 5}}
-                >
-                  <CartesianGrid strokeDasharray="3 3"/>
-                  <XAxis dataKey="name"/>
-                  <YAxis/>
-                  <Tooltip/>
-                  <Legend/>
-                  <Bar dataKey="commits" fill="#4263eb"/>
-                  <Bar dataKey="prs" fill="#37b24d"/>
-                  <Bar dataKey="reviews" fill="#f59f00"/>
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="font-medium">Top Contributors</h3>
+              <select
+                  value={sortKey}
+                  onChange={(e) => setSortKey(e.target.value as "commits" | "prs" | "reviews")}
+                  className="border border-gray-300 rounded px-2 py-1 text-sm"
+              >
+                <option value="commits">Sort by Commits</option>
+                <option value="prs">Sort by PRs</option>
+                <option value="reviews">Sort by Reviews</option>
+              </select>
             </div>
+
+            {isLoadingContributors ? (
+                <p className="text-sm text-gray-500">Loading contributor stats...</p>
+            ) : (
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                        data={[...topContributors].sort((a, b) => b[sortKey] - a[sortKey])}
+                        margin={{top: 5, right: 30, left: 0, bottom: 5}}
+                    >
+                      <CartesianGrid strokeDasharray="3 3"/>
+                      <XAxis
+                          dataKey="username"
+                          angle={-30}
+                          textAnchor="end"
+                          height={60}
+                          tickFormatter={(name) =>
+                              name.length > 10 ? name.slice(0, 10) + "…" : name
+                          }
+                      />
+                      <YAxis/>
+                      <Tooltip/>
+                      <Legend/>
+                      <Bar dataKey="commits" fill="#4263eb" name="Commits"/>
+                      <Bar dataKey="prs" fill="#37b24d" name="PRs"/>
+                      <Bar dataKey="reviews" fill="#f59f00" name="Reviews"/>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+            )}
           </div>
         </div>
 
-        {/* Assistant and Recent Activity */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="col-span-2 card">
-            <h3 className="font-medium mb-4">GitBoss AI Assistant</h3>
-            <div className="space-y-4 mb-4 max-h-80 overflow-y-auto">
-              {chatHistory.map((message, index) => (
-                  <div
-                      key={index}
-                      className={`p-3 rounded-lg ${message.role === "assistant"
-                          ? "bg-blue-50 text-blue-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                  >
-                    {message.content}
-                  </div>
-              ))}
-            </div>
-            <form onSubmit={handleChatSubmit} className="flex space-x-2">
-              <input
-                  type="text"
-                  placeholder="Ask about team performance..."
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  className="input flex-1"
-              />
-              <button type="submit" className="btn btn-primary">
-                Send
-              </button>
-            </form>
-          </div>
-
-          <div className="card">
-            <h3 className="font-medium mb-4">Recent Activity</h3>
-            <div className="space-y-4">
-              {recentActivity.map((activity, index) => (
-                  <div key={index} className="flex items-start space-x-3 text-sm">
+          {/* Assistant and Recent Activity */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="col-span-2 card">
+              <h3 className="font-medium mb-4">GitBoss AI Assistant</h3>
+              <div className="space-y-4 mb-4 max-h-80 overflow-y-auto">
+                {chatHistory.map((message, index) => (
                     <div
-                        className={`mt-0.5 w-2 h-2 rounded-full ${activity.type === "commit"
-                            ? "bg-blue-500"
-                            : activity.type === "pr"
-                                ? "bg-green-500"
-                                : "bg-yellow-500"
+                        key={index}
+                        className={`p-3 rounded-lg ${message.role === "assistant"
+                            ? "bg-blue-50 text-blue-800"
+                            : "bg-gray-100 text-gray-800"
                         }`}
-                    />
-                    <div>
-                      <p>{activity.message}</p>
-                      <p className="text-gray-500 text-xs">{activity.timestamp}</p>
+                    >
+                      {message.content}
                     </div>
-                  </div>
-              ))}
+                ))}
+              </div>
+              <form onSubmit={handleChatSubmit} className="flex space-x-2">
+                <input
+                    type="text"
+                    placeholder="Ask about team performance..."
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    className="input flex-1"
+                />
+                <button type="submit" className="btn btn-primary">
+                  Send
+                </button>
+              </form>
+            </div>
+
+            <div className="card">
+              <h3 className="font-medium mb-4">Recent Activity</h3>
+              <div className="space-y-4">
+                {recentActivity.map((activity, index) => (
+                    <div key={index} className="flex items-start space-x-3 text-sm">
+                      <div
+                          className={`mt-0.5 w-2 h-2 rounded-full ${activity.type === "commit"
+                              ? "bg-blue-500"
+                              : activity.type === "pr"
+                                  ? "bg-green-500"
+                                  : "bg-yellow-500"
+                          }`}
+                      />
+                      <div>
+                        <p>{activity.message}</p>
+                        <p className="text-gray-500 text-xs">{activity.timestamp}</p>
+                      </div>
+                    </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
-  );
-}
+        );
+        }

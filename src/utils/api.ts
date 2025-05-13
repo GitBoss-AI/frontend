@@ -1,4 +1,4 @@
-import { getToken } from './auth'
+import {getToken} from './auth'
 
 
 const API_BASE =
@@ -9,37 +9,46 @@ const AGENT_API_BASE = process.env.NEXT_PUBLIC_AGENT_API_BASE || "http://localho
 
 
 // Repository endpoints
-export async function addRepository(userId: number, repoUrl: string) {
-  const response = await fetch(`${API_BASE}/repo/add`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      user_id: userId,
-      repo_url: repoUrl,
-    }),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to add repository");
-  }
-
-  return data;
+export interface RepoStatMetric {
+  metric: string;
+  count: number;
+  change: string; // e.g. "+12.5%"
 }
 
-export async function getAllRepositories(userId: number) {
-  const response = await fetch(`${API_BASE}/repo/getAll?user_id=${userId}`);
+export interface RepoStatsResponse {
+  commits: RepoStatMetric;
+  prs: RepoStatMetric;
+  issues: RepoStatMetric;
+  reviews: RepoStatMetric;
+}
 
-  const data = await response.json();
+export async function getRepoMonthlyStats(
+  owner: string,
+  repo: string,
+  range: "week" | "month" | "quarter" = "month"
+): Promise<RepoStatsResponse> {
+  const url = new URL(`${AGENT_API_BASE}/repo/stats`);
+  url.searchParams.append("owner", owner);
+  url.searchParams.append("repo", repo);
+  url.searchParams.append("range", range);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
+    },
+  });
 
   if (!response.ok) {
-    throw new Error(data.error || "Failed to fetch repositories");
+    let errorData;
+    try {
+      errorData = await response.json();
+      throw new Error(errorData.detail || `Request failed: ${response.statusText}`);
+    } catch {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
   }
 
-  return data;
+  return await response.json();
 }
 
 export async function getRepositoryStats(

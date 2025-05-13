@@ -13,11 +13,13 @@
   ```
   NEXT_PUBLIC_API_BASE=http://localhost/dev
   ```
+
 3. Run with pnpm
    ```
    pnpm i
    pnpm dev
    ```
+
 4. Access the site at `localhost:3001/dev`
 
 5. Login with a dev user

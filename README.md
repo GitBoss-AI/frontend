@@ -1,17 +1,28 @@
 # GitBoss AI – Frontend
 
-git clone https://github.com/GitBoss-AI/frontend
-git switch dev
-git pull
+## Setup 
 
-pnpm i
-pnpm dev
+1. Get the project from Github
+  ```
+  git clone https://github.com/GitBoss-AI/frontend
+  git switch dev
+  git pull
+  ```
 
-in the .env file write this
-NEXT_PUBLIC_API_BASE=http://localhost/dev
+2. Create `.env` file with this
+  ```
+  NEXT_PUBLIC_API_BASE=http://localhost/dev
+  ```
+3. Run with pnpm
+   ```
+   pnpm i
+   pnpm dev
+   ```
+4. Access the site at `localhost:3001/dev`
 
-the site is accessible at localhost:3001/dev
-
-login with a username/password
-
-in the settings enter your github api token and the repos you want to track with owner/repo structure in a comma seperated list
+5. Login with a dev user
+   ```
+   username: gitboss-ai
+   password: gitboss
+   ```
+6. In the settings enter your github api token and the repos you want to track with owner/repo structure in a comma seperated list

@@ -117,74 +117,31 @@ export async function getTeamActivityTimeline(
   return data.timeline;
 }
 
-
-// Contributor endpoints
-export async function getContributorStats(
-  githubUsername: string,
-  repoId: number,
-  userId: number,
-  timeWindow: string = "7d",
-) {
-  const response = await fetch(
-    `${API_BASE}/contributor/stats?github_username=${githubUsername}&repo_id=${repoId}&user_id=${userId}&time_window=${timeWindow}`,
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to fetch contributor stats");
-  }
-
-  return data;
+export interface RecentActivityItem {
+  type: "commit" | "pr" | "review";
+  username: string;
+  message: string;
+  timestamp: string;
 }
 
-export async function getTopPerformers(
-  repoId: number,
-  timeWindow: string = "1w",
-) {
-  const response = await fetch(
-    `${API_BASE}/contributor/topPerformers?repo_id=${repoId}&time_window=${timeWindow}`,
-  );
+export async function getRecentActivity(
+  owner: string,
+  repo: string
+): Promise<RecentActivityItem[]> {
+  const url = new URL(`${AGENT_API_BASE}/repo/recent-activity`);
+  url.searchParams.append("owner", owner);
+  url.searchParams.append("repo", repo);
 
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to fetch top performers");
-  }
-
-  return data;
-}
-
-export async function getRecentActivity(repoId: number) {
-  const response = await fetch(
-    `${API_BASE}/contributor/recent-activity?repo_id=${repoId}`,
-  );
-
-  const data = await response.json();
+  const response = await fetch(url.toString(), {
+    headers: { Accept: "application/json" },
+  });
 
   if (!response.ok) {
-    throw new Error(data.error || "Failed to fetch recent activity");
+    throw new Error("Failed to fetch recent activity");
   }
-
-  return data;
-}
-
-// Team endpoints
-export async function getTeamTimeline(
-  repoId: number,
-  groupBy: "week" | "month" | "quarter" = "week",
-) {
-  const response = await fetch(
-    `${API_BASE}/team/timeline?repo_id=${repoId}&group_by=${groupBy}`,
-  );
 
   const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to fetch team timeline");
-  }
-
-  return data;
+  return data.activity.slice(0, 5); // Only return last 5
 }
 
 

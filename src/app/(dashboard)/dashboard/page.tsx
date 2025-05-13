@@ -15,9 +15,8 @@ import {
 } from "recharts";
 import {
   getRepoMonthlyStats,
-  getTeamTimeline,
   ContributorStats, getTopContributorStats,
-  getTeamActivityTimeline, TimelineEntry
+  getTeamActivityTimeline, TimelineEntry, getRecentActivity, RecentActivityItem
 } from "@/utils/api";
 import { Info } from "lucide-react";
 
@@ -91,12 +90,13 @@ export default function DashboardPage() {
   });
   const [topContributors, setTopContributors] = useState<ContributorStats[]>([]);
   const [timelineData, setTimelineData] = useState<TimelineEntry[]>([]);
-  const [recentActivity, setRecentActivity] = useState(mockRecentActivity);
+  const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([]);
 
 
   const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [isLoadingContributors, setIsLoadingContributors] = useState(false);
   const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
+  const [isLoadingRecentActivity, setIsLoadingRecentActivity] = useState(false);
 
   const [sortKey, setSortKey] = useState<"commits" | "prs" | "reviews">("commits");
 
@@ -160,12 +160,24 @@ export default function DashboardPage() {
       }
     };
 
+    // Recent activity
+    const fetchActivity = async () => {
+      setIsLoadingRecentActivity(true);
+      try {
+        const recent = await getRecentActivity(selectedRepo.owner, selectedRepo.repo);
+        setRecentActivity(recent);
+      } catch (err) {
+        console.error("❌ Failed to load recent activity", err);
+      } finally {
+        setIsLoadingRecentActivity(false);
+      }
+    };
+
     fetchStats();
     fetchContributors();
     fetchTimeline();
+    fetchActivity();
   }, [selectedRepo.owner, selectedRepo.repo, timeWindow]);
-
-
 
   const handleChatSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -337,59 +349,35 @@ export default function DashboardPage() {
           </div>
         </div>
 
-          {/* Assistant and Recent Activity */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="col-span-2 card">
-              <h3 className="font-medium mb-4">GitBoss AI Assistant</h3>
-              <div className="space-y-4 mb-4 max-h-80 overflow-y-auto">
-                {chatHistory.map((message, index) => (
+          {/* Recent Activity */}
+        <div className="card">
+          <h3 className="font-medium mb-4">Recent Activity</h3>
+          <div className="flex space-x-3 overflow-x-auto scrollbar-thin pr-2">
+            {recentActivity.map((activity, index) => (
+                <div
+                    key={index}
+                    className="flex-shrink-0 bg-gray-100 p-2 rounded-lg w-48 shadow text-sm"
+                >
+                  <div className="flex items-center mb-1 space-x-2">
                     <div
-                        key={index}
-                        className={`p-3 rounded-lg ${message.role === "assistant"
-                            ? "bg-blue-50 text-blue-800"
-                            : "bg-gray-100 text-gray-800"
+                        className={`w-2 h-2 rounded-full ${
+                            activity.type === "commit"
+                                ? "bg-blue-500"
+                                : activity.type === "pr"
+                                    ? "bg-green-500"
+                                    : "bg-yellow-500"
                         }`}
-                    >
-                      {message.content}
-                    </div>
-                ))}
-              </div>
-              <form onSubmit={handleChatSubmit} className="flex space-x-2">
-                <input
-                    type="text"
-                    placeholder="Ask about team performance..."
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    className="input flex-1"
-                />
-                <button type="submit" className="btn btn-primary">
-                  Send
-                </button>
-              </form>
-            </div>
-
-            <div className="card">
-              <h3 className="font-medium mb-4">Recent Activity</h3>
-              <div className="space-y-4">
-                {recentActivity.map((activity, index) => (
-                    <div key={index} className="flex items-start space-x-3 text-sm">
-                      <div
-                          className={`mt-0.5 w-2 h-2 rounded-full ${activity.type === "commit"
-                              ? "bg-blue-500"
-                              : activity.type === "pr"
-                                  ? "bg-green-500"
-                                  : "bg-yellow-500"
-                          }`}
-                      />
-                      <div>
-                        <p>{activity.message}</p>
-                        <p className="text-gray-500 text-xs">{activity.timestamp}</p>
-                      </div>
-                    </div>
-                ))}
-              </div>
-            </div>
+                    />
+                    <span className="font-semibold">{activity.username}</span>
+                  </div>
+                  <p className="text-xs text-gray-700 truncate">{activity.message}</p>
+                  <p className="text-xs text-gray-500 mt-1">{activity.timestamp}</p>
+                </div>
+            ))}
           </div>
         </div>
-        );
-        }
+
+
+      </div>
+  );
+}

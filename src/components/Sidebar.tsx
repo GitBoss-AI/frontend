@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard,
@@ -8,6 +8,7 @@ import {
   Users,
   MessageSquare,
   Settings,
+  LogOut,
 } from "lucide-react";
 
 const navItems = [
@@ -19,6 +20,12 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    sessionStorage.clear();
+    window.location.href = "http://localhost:3001/dev";
+  };
 
   return (
     <div className="w-64 h-screen bg-gray-900 text-white flex flex-col">
@@ -35,10 +42,11 @@ export default function Sidebar() {
               <li key={item.href} className="mb-2">
                 <Link
                   href={item.href}
-                  className={`flex items-center px-4 py-3 text-sm ${isActive
+                  className={`flex items-center px-4 py-3 text-sm ${
+                    isActive
                       ? "bg-blue-600 text-white"
                       : "text-gray-300 hover:bg-gray-800"
-                    }`}
+                  }`}
                 >
                   <Icon className="w-5 h-5 mr-3" />
                   {item.label}
@@ -48,6 +56,15 @@ export default function Sidebar() {
           })}
         </ul>
       </nav>
+      <div className="p-4 border-t border-gray-800">
+        <button
+            onClick={handleLogout}
+            className="flex items-center px-4 py-3 text-sm text-gray-300 hover:bg-gray-800 w-full"
+        >
+          <LogOut className="w-5 h-5 mr-3"/>
+          Logout
+        </button>
+      </div>
     </div>
   );
 }

@@ -15,10 +15,11 @@ export interface RepoStatsResponse {
   reviews: RepoStatMetric;
 }
 
-export async function getDashboardData(owner: string, repo: string, range: "week" | "month" | "quarter") {
-  const res = await fetch(`${AGENT_API_BASE}/repo/dashboard-data?owner=${owner}&repo=${repo}&range=${range}&time_range=${range}`);
-  if (!res.ok) throw new Error("Failed to load dashboard data");
-  return await res.json();
+export interface QualityMetricsResponse {
+  build_success_rate: number;
+  build_success_note: string;
+  deployment_frequency: number;
+  deployment_count: number;
 }
 
 export async function getRepoStats(
@@ -151,6 +152,31 @@ export interface PRAnalysisResponse {
   discussionSummary: string;
   contributionAnalysis: string;
 
+}
+
+export interface BuildInfo {
+  id: number;
+  status: "success" | "failure" | string;
+  duration_seconds: number;
+  started_at: string;
+  commit_sha: string;
+  build_url: string;
+  triggered_by: string;
+}
+
+export async function getRecentBuilds(
+  owner: string,
+  repo: string,
+  range: "week" | "month" | "quarter"
+): Promise<BuildInfo[]> {
+  const url = new URL(`${AGENT_API_BASE}/repo/builds`);
+  url.searchParams.append("owner", owner);
+  url.searchParams.append("repo", repo);
+  url.searchParams.append("range", range);
+
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error("Failed to fetch recent builds");
+  return res.json();
 }
 
 export async function analyzePullRequest(

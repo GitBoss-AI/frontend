@@ -4,17 +4,17 @@
 import React, { useState, useCallback, FormEvent, useEffect } from 'react';
 import { 
     getRepositoryIssues, IssueItemAPI, RepoIssuesResponseAPI,
-    generateIssueSolution, GenerateIssueSolutionRequestAPI, IssueSolutionOverallResponseAPI, StepResponseAPI // Import new API and types
+    generateIssueSolution, GenerateIssueSolutionRequestAPI, IssueSolutionOverallResponseAPI, StepResponseAPI 
 } from '@/utils/api';
 import { 
     ListChecks, AlertCircle, Search, Loader2, CalendarDays, Filter, ChevronDown, ChevronUp, 
-    ExternalLink, User, Tag, Info, Code, Zap, RotateCcw // Added Zap for Generate Solution, RotateCcw for retry
+    ExternalLink, User, Tag, Info, Code, Zap, RotateCcw,
+    CheckCircle, XCircle, MinusCircle, Settings2 // Icons for step status
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import ReactMarkdown from 'react-markdown';
 
-// (Keep getTodayDateString and getPastDateString helpers)
 const getTodayDateString = () => new Date().toISOString().split('T')[0];
 const getPastDateString = (daysAgo: number) => {
   const date = new Date();
@@ -22,12 +22,75 @@ const getPastDateString = (daysAgo: number) => {
   return date.toISOString().split('T')[0];
 };
 
+interface StepDetailDisplayProps {
+    step: StepResponseAPI;
+}
+
+const StepDetailDisplay: React.FC<StepDetailDisplayProps> = ({ step }) => {
+    const [isDataOpen, setIsDataOpen] = useState(false);
+    let statusIcon;
+    let statusColorClass;
+
+    switch (step.status) {
+        case "success":
+            statusIcon = <CheckCircle className="w-5 h-5 text-green-500" />;
+            statusColorClass = "text-green-700 bg-green-50 border-green-200";
+            break;
+        case "error":
+            statusIcon = <XCircle className="w-5 h-5 text-red-500" />;
+            statusColorClass = "text-red-700 bg-red-50 border-red-300";
+            break;
+        case "skipped":
+            statusIcon = <MinusCircle className="w-5 h-5 text-gray-500" />;
+            statusColorClass = "text-gray-700 bg-gray-50 border-gray-200";
+            break;
+        default:
+            statusIcon = <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />; // For in-progress if you add that state
+            statusColorClass = "text-blue-700 bg-blue-50 border-blue-200";
+    }
+
+    const hasData = step.data && (typeof step.data === 'object' ? Object.keys(step.data).length > 0 : typeof step.data === 'string' && step.data.trim() !== '');
+
+    return (
+        <div className={`p-3 my-2 rounded-lg border ${statusColorClass} shadow-sm`}>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                    {statusIcon}
+                    <span className="ml-2 font-medium text-sm">{step.step_name}</span>
+                </div>
+                {step.duration_ms && (
+                    <span className="text-xs text-gray-500">{step.duration_ms.toFixed(0)}ms</span>
+                )}
+            </div>
+            {step.error_message && (
+                <p className="mt-1 text-xs text-red-600 pl-7">{step.error_message}</p>
+            )}
+            {step.status === "skipped" && step.data && typeof step.data === 'string' && (
+                 <p className="mt-1 text-xs text-gray-600 pl-7">{step.data}</p>
+            )}
+            {hasData && step.status !== "skipped" && (
+                 <div className="mt-2 pl-7">
+                    <button onClick={() => setIsDataOpen(!isDataOpen)} className="text-xs text-indigo-600 hover:underline flex items-center">
+                        {isDataOpen ? <ChevronUp className="w-3 h-3 mr-1"/> : <ChevronDown className="w-3 h-3 mr-1"/>}
+                        {isDataOpen ? 'Hide Details' : 'Show Details'}
+                    </button>
+                    {isDataOpen && (
+                        <pre className="mt-1 bg-gray-800 text-white p-2.5 rounded-md text-xs overflow-x-auto max-h-60">
+                            <code>{JSON.stringify(step.data, null, 2)}</code>
+                        </pre>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
 
 interface CollapsibleIssueProps {
   issue: IssueItemAPI;
-  repoOwner: string; // Pass repoOwner
-  repoName: string;  // Pass repoName
-  onGenerateSolution: (issue: IssueItemAPI) => void; // Callback to trigger solution generation
+  repoOwner: string;
+  repoName: string;
+  onGenerateSolution: (issue: IssueItemAPI) => void;
   solutionData?: IssueSolutionOverallResponseAPI | null;
   isGeneratingSolution?: boolean;
   solutionError?: string | null;
@@ -35,40 +98,30 @@ interface CollapsibleIssueProps {
 
 const CollapsibleIssue: React.FC<CollapsibleIssueProps> = ({ 
     issue, 
-    repoOwner, // Receive repoOwner
-    repoName,  // Receive repoName
+    repoOwner,
+    repoName,
     onGenerateSolution,
     solutionData,
     isGeneratingSolution,
     solutionError
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [showSolution, setShowSolution] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  // showSolution will now primarily be controlled by whether we have data/error or are loading for THIS issue
+  const shouldShowSolutionSection = isGeneratingSolution || !!solutionData || !!solutionError;
 
-  useEffect(() => {
-    // If solution data or error becomes available, and the details are open, show the solution section
-    if ((solutionData || solutionError) && isOpen) {
-      setShowSolution(true);
-    }
-  }, [solutionData, solutionError, isOpen]);
-  
+
   const handleToggleDetails = () => {
-    setIsOpen(!isOpen);
-    // If closing details, also hide solution section unless it was explicitly opened by generating
-    if (isOpen && !solutionData && !solutionError) { 
-        setShowSolution(false);
-    }
+    setIsDetailsOpen(!isDetailsOpen);
   };
 
   const handleGenerateClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent CollapsibleIssue click
-    setShowSolution(true); // Show solution section immediately
-    if (!isOpen) setIsOpen(true); // Open details if not already open
+    e.stopPropagation(); 
+    if (!isDetailsOpen) setIsDetailsOpen(true); // Open details if initiating solution
     onGenerateSolution(issue);
   };
 
   return (
-    <li className="py-4 px-2 hover:bg-gray-50/70 transition-colors duration-150 ease-in-out rounded-md border border-gray-200 shadow-sm mb-3">
+    <li className="py-4 px-2 hover:bg-gray-50/70 transition-colors duration-150 ease-in-out rounded-lg border border-gray-200 shadow-sm mb-4"> {/* Increased mb */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
           <button
@@ -76,125 +129,137 @@ const CollapsibleIssue: React.FC<CollapsibleIssueProps> = ({
             className="w-full text-left focus:outline-none group"
           >
             <div className="flex items-center">
-              {isOpen ? <ChevronUp className="w-5 h-5 mr-2 text-indigo-600 transition-transform duration-200" /> : <ChevronDown className="w-5 h-5 mr-2 text-indigo-500 group-hover:text-indigo-600 transition-transform duration-200" />}
-              <span className="text-base font-semibold text-indigo-700 group-hover:underline truncate" title={issue.title}>
+              {isDetailsOpen ? <ChevronUp className="w-5 h-5 mr-2 text-indigo-600 transition-transform duration-200" /> : <ChevronDown className="w-5 h-5 mr-2 text-indigo-500 group-hover:text-indigo-600 transition-transform duration-200" />}
+              <span className="text-lg font-semibold text-indigo-700 group-hover:underline truncate" title={issue.title}> {/* Increased font size */}
                 #{issue.number}: {issue.title}
               </span>
             </div>
           </button>
-          <div className="mt-1 text-xs text-gray-500 ml-7 flex items-center flex-wrap gap-x-3 gap-y-1">
-            <span>State: <span className={`px-2 py-0.5 inline-flex text-xs leading-tight font-semibold rounded-full ${issue.state === 'open' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          <div className="mt-1.5 text-sm text-gray-500 ml-7 flex items-center flex-wrap gap-x-4 gap-y-1"> {/* Increased font size and gap */}
+            <span>State: <span className={`px-2.5 py-1 inline-flex text-xs leading-tight font-semibold rounded-full ${issue.state === 'open' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
               {issue.state}
             </span></span>
             <span>Created: {new Date(issue.created_at).toLocaleDateString()}</span>
             {issue.closed_at && <span>Closed: {new Date(issue.closed_at).toLocaleDateString()}</span>}
             <a href={issue.html_url} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline inline-flex items-center">
-              View on GitHub <ExternalLink className="w-3 h-3 ml-1" />
+              View on GitHub <ExternalLink className="w-3.5 h-3.5 ml-1" />
             </a>
           </div>
         </div>
-        {/* Generate Solution Button */}
         <button
             onClick={handleGenerateClick}
-            className="btn btn-teal text-xs px-3 py-1.5 flex items-center group mt-2 sm:mt-0 ml-auto sm:ml-0" // Adjusted margin for mobile
+            className="btn btn-teal text-sm px-4 py-2 flex items-center group mt-3 sm:mt-0 ml-auto sm:ml-0 self-start sm:self-center" // Adjusted button style
             disabled={isGeneratingSolution}
             title="Generate potential code solution for this issue"
         >
             {isGeneratingSolution ? 
-                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : 
-                <Zap className="w-4 h-4 mr-1.5 group-hover:text-yellow-300 transition-colors" />
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : 
+                <Zap className="w-5 h-5 mr-2 group-hover:text-yellow-300 transition-colors" />
             }
             {isGeneratingSolution ? 'Generating...' : 'Solve Issue'}
         </button>
       </div>
 
-      {isOpen && (
-        <div className="mt-3 ml-7 pl-4 pt-3 border-l-2 border-indigo-100 space-y-4">
-          {/* ... (Existing issue details: description, author, labels) ... */}
+      {isDetailsOpen && (
+        <div className="mt-4 ml-7 pl-5 pt-4 border-l-2 border-indigo-200 space-y-5"> {/* Increased padding and spacing */}
           <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-1">Description:</h4>
-            <div className="prose prose-sm max-w-none text-gray-700 bg-gray-50 p-3 rounded-md whitespace-pre-wrap border border-gray-200">
-              {issue.body ? <ReactMarkdown>{issue.body}</ReactMarkdown> : <span className="italic">No description.</span>}
+            <h4 className="text-md font-semibold text-gray-800 mb-1.5">Description:</h4> {/* Increased font size */}
+            <div className="prose prose-base max-w-none text-gray-700 bg-gray-50 p-4 rounded-md whitespace-pre-wrap border border-gray-200 shadow-sm"> {/* Increased font size and padding */}
+              {issue.body ? <ReactMarkdown>{issue.body}</ReactMarkdown> : <span className="italic">No description provided.</span>}
             </div>
           </div>
-          <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-1 flex items-center">
-              <User className="w-4 h-4 mr-1.5 text-gray-500" /> Author:
-            </h4>
-            <div className="flex items-center space-x-2 text-sm">
-              <Image src={issue.user.avatar_url} alt={issue.user.login} width={24} height={24} className="rounded-full shadow-sm" />
-              <a href={issue.user.html_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
-                {issue.user.login}
-              </a>
-            </div>
-          </div>
-          {issue.labels && issue.labels.length > 0 && (
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-1 flex items-center">
-                <Tag className="w-4 h-4 mr-1.5 text-gray-500" /> Labels:
+              <h4 className="text-md font-semibold text-gray-700 mb-1 flex items-center">
+                <User className="w-4 h-4 mr-1.5 text-gray-500" /> Author:
               </h4>
-              <div className="flex flex-wrap gap-1.5">
-                {issue.labels.map(label => (
-                  <span key={label.name} className="px-2 py-0.5 text-xs rounded-full border" style={{ backgroundColor: `#${label.color}33`, borderColor: `#${label.color}`, color: `#${label.color}` }}>
-                    {label.name}
-                  </span>
-                ))}
+              <div className="flex items-center space-x-2 text-sm">
+                <Image src={issue.user.avatar_url} alt={issue.user.login} width={28} height={28} className="rounded-full shadow-sm" /> {/* Increased size */}
+                <a href={issue.user.html_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
+                  {issue.user.login}
+                </a>
               </div>
             </div>
-          )}
+    
+            {issue.labels && issue.labels.length > 0 && (
+              <div>
+                <h4 className="text-md font-semibold text-gray-700 mb-1 flex items-center">
+                  <Tag className="w-4 h-4 mr-1.5 text-gray-500" /> Labels:
+                </h4>
+                <div className="flex flex-wrap gap-2"> {/* Increased gap */}
+                  {issue.labels.map(label => (
+                    <span 
+                      key={label.name} 
+                      className="px-2.5 py-1 text-xs rounded-md border shadow-sm" // Slightly larger padding and shadow
+                      style={{ 
+                        backgroundColor: `#${label.color}20`, // Lighter background for better text contrast
+                        borderColor: `#${label.color}80`, 
+                        color: `#${label.color}` // Using a more saturated version of the label color for text could be an option if contrast is an issue
+                        // Consider a utility function to determine if text should be light or dark based on label.color
+                      }}
+                    >
+                      {label.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
-      {/* Solution Display Section */}
-      {showSolution && (
-        <div className="mt-4 ml-7 pl-4 pt-3 border-l-2 border-teal-200 bg-teal-50/50 rounded-md">
-            <h4 className="text-sm font-semibold text-teal-700 mb-2 flex items-center">
-                <Code className="w-4 h-4 mr-1.5" /> Generated Solution
-            </h4>
+      
+      {shouldShowSolutionSection && (
+        <div className="mt-5 ml-7 pl-5 pt-4 border-l-4 border-teal-400 bg-teal-50/30 rounded-r-lg shadow-md"> {/* More prominent border */}
+            <h3 className="text-lg font-semibold text-teal-800 mb-3 flex items-center"> {/* Larger title */}
+                <Settings2 className="w-6 h-6 mr-2" /> Workflow Progress & Solution
+            </h3>
             {isGeneratingSolution && (
-                <div className="flex items-center text-sm text-gray-600 py-3">
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin text-teal-600" />
+                <div className="flex items-center text-md text-gray-700 py-4"> {/* Larger text */}
+                    <Loader2 className="w-6 h-6 mr-3 animate-spin text-teal-600" />
                     Generating solution, please wait... This might take a minute.
                 </div>
             )}
             {solutionError && !isGeneratingSolution && (
-                <div className="my-2 p-3 text-sm text-red-700 bg-red-100 border border-red-200 rounded-md">
-                    <p className="font-semibold">Error generating solution:</p>
-                    <p>{solutionError}</p>
+                <div className="my-3 p-4 text-sm text-red-800 bg-red-100 border border-red-300 rounded-md shadow">
+                    <div className="flex items-center">
+                        <AlertCircle className="w-5 h-5 mr-2"/>
+                        <p className="font-semibold">Error Generating Solution:</p>
+                    </div>
+                    <p className="mt-1 pl-7">{solutionError}</p>
                     <button 
                         onClick={(e) => { e.stopPropagation(); onGenerateSolution(issue); }}
-                        className="btn btn-outline-primary text-xs mt-2"
+                        className="btn btn-outline-primary text-xs mt-3 ml-7"
                     >
-                        <RotateCcw className="w-3 h-3 mr-1"/> Retry
+                        <RotateCcw className="w-3.5 h-3.5 mr-1.5"/> Retry
                     </button>
                 </div>
             )}
             {solutionData && !isGeneratingSolution && !solutionError && (
-                <div className="space-y-3">
-                    <p className="text-sm text-teal-800">{solutionData.message}</p>
+                <div className="space-y-4 pb-3">
+                    <p className="text-md text-teal-800">{solutionData.message}</p>
+                    
+                    {/* Workflow Steps Display */}
                     {solutionData.steps && solutionData.steps.length > 0 && (
-                        <details className="text-xs">
-                            <summary className="cursor-pointer text-teal-600 hover:underline">View Workflow Steps ({solutionData.steps.length})</summary>
-                            <ul className="mt-2 space-y-1 pl-2">
+                        <div>
+                            <h4 className="text-md font-medium text-gray-700 mb-2">Processing Steps:</h4>
+                            <div className="space-y-1">
                                 {solutionData.steps.map((step, index) => (
-                                    <li key={index} className={`p-1.5 rounded-sm text-gray-700 ${step.status === 'error' ? 'bg-red-100 border-l-2 border-red-500' : step.status === 'success' ? 'bg-green-50 border-l-2 border-green-500' : 'bg-gray-100'}`}>
-                                        <strong>{step.step_name}:</strong> {step.status} 
-                                        {step.duration_ms && ` (${step.duration_ms.toFixed(0)}ms)`}
-                                        {step.error_message && <span className="text-red-600 block text-xs">Error: {step.error_message}</span>}
-                                        {/* Optionally, display step.data if useful */}
-                                    </li>
+                                   <StepDetailDisplay key={index} step={step} />
                                 ))}
-                            </ul>
-                        </details>
+                            </div>
+                        </div>
                     )}
+
                     {solutionData.final_diff ? (
                         <div>
-                            <h5 className="text-xs font-semibold text-gray-600 mt-2 mb-1">Suggested Diff:</h5>
-                            <pre className="bg-gray-800 text-white p-3 rounded-md text-xs overflow-x-auto max-h-96">
+                            <h4 className="text-md font-medium text-gray-700 mt-3 mb-1.5">Suggested Diff:</h4>
+                            <pre className="bg-gray-800 text-white p-4 rounded-lg text-sm overflow-x-auto max-h-[500px] shadow-inner"> {/* Larger padding, font, max-height */}
                                 <code>{solutionData.final_diff}</code>
                             </pre>
                         </div>
                     ) : (
-                        <p className="italic text-gray-500">No diff generated.</p>
+                        <p className="italic text-gray-600 mt-2">No diff was generated for this solution.</p>
                     )}
                 </div>
             )}
@@ -203,10 +268,11 @@ const CollapsibleIssue: React.FC<CollapsibleIssueProps> = ({
     </li>
   );
 };
-
+  
 export default function RepositoryIssuesPage() {
-  const [repoOwner, setRepoOwner] = useState<string>("GitBoss-AI");
-  const [repoName, setRepoName] = useState<string>("agent");
+  // ... (keep existing state and functions: repoOwner, repoName, startDate, endDate, etc.)
+  const [repoOwner, setRepoOwner] = useState<string>("alpsencer"); 
+  const [repoName, setRepoName] = useState<string>("infrastack");  
   const [startDate, setStartDate] = useState<string>(getPastDateString(30));
   const [endDate, setEndDate] = useState<string>(getTodayDateString());
   const [issueStateFilter, setIssueStateFilter] = useState<string>("all");
@@ -216,65 +282,84 @@ export default function RepositoryIssuesPage() {
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
 
-  // State for individual issue solution generation
   const [solutionResults, setSolutionResults] = useState<{ [issueNumber: number]: IssueSolutionOverallResponseAPI | null }>({});
   const [generatingSolutionFor, setGeneratingSolutionFor] = useState<number | null>(null);
   const [solutionErrors, setSolutionErrors] = useState<{ [issueNumber: number]: string | null }>({});
   
+ 
 
   const fetchIssues = useCallback(async () => {
     if (!repoOwner.trim() || !repoName.trim()) {
       setError("Repository owner and name are required.");
+      setHasFetched(true); 
+      setIssuesData(null); 
+      return;
+    }
+    if (!startDate || !endDate) {
+        setError("Start and End dates are required.");
+        setHasFetched(true);
+        setIssuesData(null);
+        return;
+    }
+    if (new Date(startDate) > new Date(endDate)) {
+      setError("Start date cannot be after end date.");
       setHasFetched(true);
+      setIssuesData(null);
       return;
     }
 
     setIsLoading(true);
     setError(null);
+    setIssuesData(null); // Clear previous data
     setHasFetched(true);
 
     try {
-      const result = await getRepositoryIssues(repoOwner.trim(), repoName.trim(), startDate, endDate, issueStateFilter);
-      if (result.error) {
+      const result = await getRepositoryIssues(
+        repoOwner.trim(),
+        repoName.trim(),
+        startDate,
+        endDate,
+        issueStateFilter
+      );
+      
+      if (result.error) { // Check for error field in the response
         setError(`${result.error}${result.details ? ` (${result.details})` : ''}${result.status_code ? ` (Status: ${result.status_code})` : ''}`);
-        setIssuesData(null); // only clear if there's an actual error
-        sessionStorage.removeItem("repoIssuesData");
+        setIssuesData(null);
       } else {
         setIssuesData(result);
-        sessionStorage.setItem("repoIssuesData", JSON.stringify(result));
-        sessionStorage.setItem("repoIssuesMeta", JSON.stringify({ repoOwner, repoName, startDate, endDate, issueStateFilter }));
       }
     } catch (err: any) {
-      setError(err.message || "Failed to fetch issues.");
-      setIssuesData(null); // only clear if there's an exception
-      sessionStorage.removeItem("repoIssuesData");
+      setError(err.message || "Failed to fetch issues. Check if the backend API is running and accessible.");
+      setIssuesData(null);
     } finally {
       setIsLoading(false);
     }
   }, [repoOwner, repoName, startDate, endDate, issueStateFilter]);
 
   const handleGenerateSolutionForIssue = async (issue: IssueItemAPI) => {
-
     setGeneratingSolutionFor(issue.number);
-    setSolutionErrors(prev => ({ ...prev, [issue.number]: null }));
-    setSolutionResults(prev => ({ ...prev, [issue.number]: null }));
+    setSolutionErrors(prev => ({ ...prev, [issue.number]: null })); // Clear previous error for this issue
+    setSolutionResults(prev => ({ ...prev, [issue.number]: null })); // Clear previous result
 
     const requestPayload: GenerateIssueSolutionRequestAPI = {
-      repo_owner: repoOwner, // Assuming these are available from the page's state or issue context
+      repo_owner: repoOwner, 
       repo_name: repoName,
       issue_number: issue.number,
       issue_title: issue.title,
-      issue_description: issue.body || "No description provided for this issue.", // Ensure body is not null
+      issue_description: issue.body || "No description provided for this issue.",
     };
 
     try {
       const result = await generateIssueSolution(requestPayload);
       setSolutionResults(prev => ({ ...prev, [issue.number]: result }));
-      if (result.error) {
+      if (result.error) { // Check for top-level error in response
         setSolutionErrors(prev => ({ ...prev, [issue.number]: result.error || "An unknown error occurred during solution generation." }));
+      } else if (result.steps.some(step => step.status === 'error')) { // Check for errors within steps
+        const firstErrorStep = result.steps.find(step => step.status === 'error');
+        setSolutionErrors(prev => ({ ...prev, [issue.number]: `Workflow failed at step: ${firstErrorStep?.step_name}. ${firstErrorStep?.error_message || ''}`.trim() }));
       }
     } catch (err: any) {
-      setSolutionErrors(prev => ({ ...prev, [issue.number]: err.message || "Failed to generate solution." }));
+      setSolutionErrors(prev => ({ ...prev, [issue.number]: err.message || "Failed to generate solution due to a network or unexpected error." }));
     } finally {
       setGeneratingSolutionFor(null);
     }
@@ -284,36 +369,13 @@ export default function RepositoryIssuesPage() {
     e.preventDefault();
     fetchIssues();
   };
-
-  useEffect(() => {
-    const cachedData = sessionStorage.getItem("repoIssuesData");
-    const cachedMeta = sessionStorage.getItem("repoIssuesMeta");
-
-    if (cachedData && cachedMeta) {
-      try {
-        const parsedData: RepoIssuesResponseAPI = JSON.parse(cachedData);
-        const parsedMeta = JSON.parse(cachedMeta);
-
-        setIssuesData(parsedData);
-        setRepoOwner(parsedMeta.repoOwner || "GitBoss-AI");
-        setRepoName(parsedMeta.repoName || "agent");
-        setStartDate(parsedMeta.startDate || getPastDateString(30));
-        setEndDate(parsedMeta.endDate || getTodayDateString());
-        setIssueStateFilter(parsedMeta.issueStateFilter || "all");
-        setHasFetched(true);
-      } catch (e) {
-        console.error("Failed to parse cached issues data:", e);
-      }
-    }
-  }, []);
-
+  
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-gray-100 min-h-screen">
-      {/* ... (existing header and form for fetching issues) ... */}
       <div className="flex flex-col sm:flex-row items-center justify-between mb-6 pb-4 border-b border-gray-300">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center mb-2 sm:mb-0">
             <Info className="w-8 h-8 mr-3 text-indigo-600" />
-            Repository Issues
+            Repository Issues & Automated Solutions
           </h1>
           <Link href="/chat" className="text-sm text-blue-600 hover:text-blue-700 hover:underline transition-colors duration-150">
             &larr; Back to AI Assistant
@@ -358,14 +420,14 @@ export default function RepositoryIssuesPage() {
           </form>
         </div>
 
-      {isLoading && ( /* ... Loading spinner ... */ 
+      {isLoading && ( 
         <div className="flex flex-col justify-center items-center py-12 text-center">
             <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-3" />
             <p className="text-gray-600 font-medium">Loading Issues...</p>
         </div>
       )}
 
-      {error && !isLoading && ( /* ... Error display ... */ 
+      {error && !isLoading && ( 
         <div className="my-4 flex items-start rounded-lg border-l-4 border-red-500 bg-red-100 p-4 text-red-700 shadow-md">
             <AlertCircle className="mr-3 h-6 w-6 flex-shrink-0 mt-0.5" />
             <div><p className="font-semibold">Error</p><p className="text-sm">{error}</p></div>
@@ -375,7 +437,7 @@ export default function RepositoryIssuesPage() {
       {!isLoading && !error && hasFetched && issuesData && (
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-800">
+            <h2 className="text-xl font-semibold text-gray-800"> {/* Increased font size */}
               Found {issuesData.total_issues} Issue(s) for <span className="font-medium text-indigo-700">{issuesData.repository}</span>
             </h2>
             <p className="text-sm text-gray-600">
@@ -383,13 +445,13 @@ export default function RepositoryIssuesPage() {
             </p>
           </div>
           {issuesData.issues.length > 0 ? (
-            <ul className="divide-y divide-gray-200 max-h-[calc(100vh-32rem)] overflow-y-auto p-2 sm:p-4">
+            <ul className="divide-y divide-gray-200 max-h-[calc(100vh-32rem)] overflow-y-auto p-3 sm:p-5 space-y-2"> {/* Increased padding */}
               {issuesData.issues.map((issue) => (
                 <CollapsibleIssue 
                   key={issue.id} 
                   issue={issue}
-                  repoOwner={repoOwner} // Pass current repoOwner
-                  repoName={repoName}   // Pass current repoName
+                  repoOwner={repoOwner}
+                  repoName={repoName}
                   onGenerateSolution={handleGenerateSolutionForIssue}
                   solutionData={solutionResults[issue.number]}
                   isGeneratingSolution={generatingSolutionFor === issue.number}
@@ -398,8 +460,8 @@ export default function RepositoryIssuesPage() {
               ))}
             </ul>
           ) : (
-            <div className="p-6 text-center text-gray-500">
-              <Info className="w-12 h-12 mx-auto text-gray-400 mb-3" />
+            <div className="p-8 text-center text-gray-500"> {/* Increased padding */}
+              <Info className="w-16 h-16 mx-auto text-gray-400 mb-4" /> {/* Increased size */}
               No issues found matching your criteria.
             </div>
           )}
@@ -407,10 +469,10 @@ export default function RepositoryIssuesPage() {
       )}
       
       {!isLoading && !error && hasFetched && !issuesData && (
-         <div className="my-4 text-center text-gray-500 py-12 bg-white rounded-xl shadow-lg">
-            <Info className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <p className="text-lg font-medium">No Data Available</p>
-            <p className="text-sm">Please fetch issues to see results, or check if there was an error in a previous attempt.</p>
+         <div className="my-4 text-center text-gray-500 py-16 bg-white rounded-xl shadow-lg"> {/* Increased padding */}
+            <Info className="w-20 h-20 mx-auto text-gray-400 mb-5" /> {/* Increased size */}
+            <p className="text-xl font-medium">No Data Available</p> {/* Increased font size */}
+            <p className="text-md mt-1">Please fetch issues to see results, or check if an error occurred.</p> {/* Increased font size */}
         </div>
       )}
     </div>

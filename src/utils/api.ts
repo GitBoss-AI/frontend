@@ -240,3 +240,47 @@ export async function getRepositoryPRs(
   const data: PRListItemAPI[] = await response.json();
   return data;
 }
+
+
+export interface ContributorListItemAPI {
+  username: string;
+  contributions: number;
+  avatar_url?: string | null; // Optional, as per Pydantic model
+  profile_url: string;
+}
+
+// --- Function to call the /repository-contributors/ endpoint ---
+export async function getRepositoryContributors(
+  repoOwner: string,
+  repoName: string
+): Promise<ContributorListItemAPI[]> {
+  const token = getToken();
+  if (!token) {
+    throw new Error("Authentication token not found. Please log in.");
+  }
+
+  const url = new URL(`${AGENT_API_BASE}/repository-contributors/`);
+  url.searchParams.append('repo_owner', repoOwner);
+  url.searchParams.append('repo_name', repoName);
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    let errorData;
+    try {
+      errorData = await response.json();
+    } catch (e) {
+      throw new Error(`HTTP error ${response.status}: ${response.statusText || 'Failed to fetch'}`);
+    }
+    throw new Error(errorData.detail || `API request failed with status ${response.status}`);
+  }
+
+  const data: ContributorListItemAPI[] = await response.json();
+  return data;
+}

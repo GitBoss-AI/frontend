@@ -10,7 +10,8 @@ import {
   ListChecks,
   Send,
   Users,
-  FileSearch
+  FileSearch,
+  Info as InfoIcon
 } from 'lucide-react';
 import Link from 'next/link'; // Standard import
 
@@ -22,6 +23,7 @@ const quickPrompts = [
 ];
 
 export default function ChatPage() {
+  const { user } = useUser();
   const [input, setInput] = useState("");
 
   // State for "Test Single PR Analysis" tool
@@ -58,23 +60,32 @@ export default function ChatPage() {
             <MessageSquare className="w-8 h-8 mr-3 text-blue-600" />
             AI Assistant
           </h1>
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto order-2 sm:order-none">
-            {/* Link 1: Browse Recent PRs - NEW Link syntax */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full sm:w-auto order-2 sm:order-none">
+            {/* Link 1: Browse Recent PRs */}
             <Link
               href="/chat/recent-prs"
               className="btn btn-outline-primary flex items-center justify-center transition-all duration-150 ease-in-out group text-sm px-4 py-2.5"
             >
               <ListChecks className="w-5 h-5 mr-2 group-hover:scale-105 transition-transform" />
-              Browse Recent PRs
+              Recent PRs
             </Link>
 
-            {/* Link 2: View Contributors - NEW Link syntax */}
+            {/* Link 2: View Contributors */}
             <Link
               href="/chat/repository-contributors"
               className="btn btn-indigo flex items-center justify-center transition-all duration-150 ease-in-out group text-sm px-4 py-2.5"
             >
               <Users className="w-5 h-5 mr-2 group-hover:scale-105 transition-transform" />
-              View Contributors
+              Contributors
+            </Link>
+
+            {/* NEW Link 3: View Issues */}
+            <Link
+              href="/chat/repository-issues"
+              className="btn btn-teal flex items-center justify-center transition-all duration-150 ease-in-out group text-sm px-4 py-2.5"
+            >
+              <InfoIcon className="w-5 h-5 mr-2 group-hover:scale-105 transition-transform" />
+              Repo Issues
             </Link>
           </div>
         </div>

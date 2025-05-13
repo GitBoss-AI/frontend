@@ -288,6 +288,42 @@ export interface ContributorActivityResponseAPI {
   closed_issues_by_user: IssueInfoAPI[];
 }
 
+export interface IssueUserAPI {
+  login: string;
+  id: number;
+  html_url: string;
+  avatar_url: string;
+}
+
+export interface IssueLabelAPI {
+  name: string;
+  color: string;
+}
+
+export interface IssueItemAPI {
+  id: number;
+  number: number;
+  title: string;
+  body?: string | null;
+  state: string;
+  created_at: string; // datetime string
+  updated_at: string; // datetime string
+  closed_at?: string | null; // datetime string
+  html_url: string;
+  user: IssueUserAPI;
+  labels: IssueLabelAPI[];
+}
+
+export interface RepoIssuesResponseAPI {
+  repository: string;
+  time_period: string;
+  state_filter: string;
+  total_issues: number;
+  issues: IssueItemAPI[];
+  error?: string | null; // To catch errors returned from the backend
+  status_code?: number | null;
+  details?: string | null;
+}
 
 
 export async function getRepositoryPRs(
@@ -399,4 +435,56 @@ export async function getContributorActivity(
     throw new Error(errorData.detail || `API request failed with status ${response.status}`);
   }
   return response.json();
+}
+
+
+
+
+export async function getRepositoryIssues(
+  repoOwner: string,
+  repoName: string,
+  startDate: string, // YYYY-MM-DD
+  endDate: string,   // YYYY-MM-DD
+  state: string = "all"
+): Promise<RepoIssuesResponseAPI> {
+  const url = new URL(`${AGENT_API_BASE}/repository-issues/`);
+  url.searchParams.append('repo_owner', repoOwner);
+  url.searchParams.append('repo_name', repoName);
+  url.searchParams.append('start_date', startDate);
+  url.searchParams.append('end_date', endDate);
+  url.searchParams.append('state', state);
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+      // Add Authorization header if your endpoint is protected
+      // 'Authorization': `Bearer ${your_auth_token_logic_here}`
+    },
+  });
+
+  if (!response.ok) {
+    let errorData;
+    try {
+      errorData = await response.json();
+    } catch (e) {
+      throw new Error(`HTTP error ${response.status}: ${response.statusText || 'Failed to fetch issues'}`);
+    }
+    // If the backend returns a structured error in the RepoIssuesResponseAPI format
+    if (errorData && errorData.error) {
+        // You might want to throw an error or return the errorData directly
+        // For simplicity, let's assume the component will check the 'error' field.
+        // If you want to always throw, use: throw new Error(errorData.detail || errorData.error || `API request failed with status ${response.status}`);
+        return errorData as RepoIssuesResponseAPI; // Ensure this matches the expected error structure
+    }
+    throw new Error(errorData.detail || `API request failed with status ${response.status}`);
+  }
+
+  const data: RepoIssuesResponseAPI = await response.json();
+  // If the successful response might still contain an error field (as per Pydantic model)
+  if (data.error) {
+      // Handle this scenario, e.g., by throwing or logging
+      console.warn(`Workspaceed issues for ${repoOwner}/${repoName} but API reported an error: ${data.error}`);
+  }
+  return data;
 }

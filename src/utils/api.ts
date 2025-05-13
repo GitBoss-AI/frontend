@@ -15,7 +15,13 @@ export interface RepoStatsResponse {
   reviews: RepoStatMetric;
 }
 
-export async function getRepoMonthlyStats(
+export async function getDashboardData(owner: string, repo: string, range: "week" | "month" | "quarter") {
+  const res = await fetch(`${AGENT_API_BASE}/repo/dashboard-data?owner=${owner}&repo=${repo}&range=${range}&time_range=${range}`);
+  if (!res.ok) throw new Error("Failed to load dashboard data");
+  return await res.json();
+}
+
+export async function getRepoStats(
   owner: string,
   repo: string,
   range: "week" | "month" | "quarter" = "month"

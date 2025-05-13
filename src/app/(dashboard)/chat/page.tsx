@@ -10,18 +10,20 @@ import {
   MessageSquare,
   ListChecks,
   Send,
-  Users, // Ensure Users icon is imported
-  FileSearch // Example icon for PR Analysis test button
+  Users,
+  FileSearch
 } from 'lucide-react';
-import Link from 'next/link';
+import Link from 'next/link'; // Standard import
 
-const quickPrompts: string[] = [
-  // ... your quick prompts
+const quickPrompts = [
+  "Analyze commit patterns for owner/repo",
+  "Provide a sprint summary for owner/repo",
+  "Find bottlenecks in owner/repo",
+  "Suggest review process improvements for owner/repo",
 ];
 
 export default function ChatPage() {
   const { user } = useUser();
-  // ... (all your existing state variables for chat, PR analysis test, etc.)
   const {
     messages: wsMessages,
     sendMessage,
@@ -33,13 +35,13 @@ export default function ChatPage() {
   const [chatDisplayMessages, setChatDisplayMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
 
+  // State for "Test Single PR Analysis" tool
   const [prNumberInput, setPrNumberInput] = useState<string>("33165");
   const [repoOwnerInput, setRepoOwnerInput] = useState<string>("facebook");
   const [repoNameInput, setRepoNameInput] = useState<string>("react");
   const [analysisResult, setAnalysisResult] = useState<PRAnalysisResponse | null>(null);
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
-
 
   useEffect(() => {
     setChatDisplayMessages(wsMessages);
@@ -49,7 +51,7 @@ export default function ChatPage() {
     if (isConnected && chatDisplayMessages.length === 0 && !isAiTyping) {
       const initialMessage: ChatMessage = {
         id: `ai_greeting_${Date.now()}`,
-        content: "Hello! I'm your GitBoss AI assistant. How can I assist you today?",
+        content: "Hello! I'm your GitBoss AI assistant. How can I assist you today? Try asking a question or using a quick prompt.",
         sender: "GitBoss AI",
         timestamp: Date.now(),
         isFromUser: false,
@@ -58,27 +60,38 @@ export default function ChatPage() {
     }
   }, [isConnected, chatDisplayMessages.length, isAiTyping]);
 
-
   const handleSendMessage = (e?: React.FormEvent) => {
-    // ... (implementation as before)
     if (e) e.preventDefault();
     if (!input.trim() || !isConnected) return;
-    const userMessage: ChatMessage = { /* ... */ id: `user_${Date.now()}`, content: input.trim(), sender: user?.username || "User", timestamp: Date.now(), isFromUser: true };
+    const userMessage: ChatMessage = {
+      id: `user_${Date.now()}`,
+      content: input.trim(),
+      sender: user?.username || "User",
+      timestamp: Date.now(),
+      isFromUser: true,
+    };
     setChatDisplayMessages(prev => [...prev, userMessage]);
     sendMessage(input.trim());
     setInput("");
   };
 
   const handleQuickPrompt = (prompt: string) => {
-    // ... (implementation as before)
-    if (!isConnected) return;
-    const userMessage: ChatMessage = { /* ... */ id: `user_prompt_${Date.now()}`, content: prompt, sender: user?.username || "User", timestamp: Date.now(), isFromUser: true};
+    if (!isConnected) {
+      alert("Not connected. Please wait or check connection.");
+      return;
+    }
+    const userMessage: ChatMessage = {
+      id: `user_prompt_${Date.now()}`,
+      content: prompt,
+      sender: user?.username || "User",
+      timestamp: Date.now(),
+      isFromUser: true,
+    };
     setChatDisplayMessages(prev => [...prev, userMessage]);
     sendMessage(prompt);
   };
 
   const handleAnalyzePrViaApi = async () => {
-    // ... (implementation as before)
     setIsLoadingAnalysis(true);
     setAnalysisResult(null);
     setAnalysisError(null);
@@ -105,20 +118,22 @@ export default function ChatPage() {
             AI Assistant
           </h1>
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto order-2 sm:order-none">
-            {/* Link 1: Browse Recent PRs */}
-            <Link href="/chat/recent-prs" legacyBehavior>
-              <a className="btn btn-outline-primary flex items-center justify-center transition-all duration-150 ease-in-out group text-sm px-4 py-2.5">
-                <ListChecks className="w-5 h-5 mr-2 group-hover:scale-105 transition-transform" />
-                Browse Recent PRs
-              </a>
+            {/* Link 1: Browse Recent PRs - NEW Link syntax */}
+            <Link
+              href="/chat/recent-prs"
+              className="btn btn-outline-primary flex items-center justify-center transition-all duration-150 ease-in-out group text-sm px-4 py-2.5"
+            >
+              <ListChecks className="w-5 h-5 mr-2 group-hover:scale-105 transition-transform" />
+              Browse Recent PRs
             </Link>
 
-            {/* Link 2: View Contributors */}
-            <Link href="/chat/repository-contributors" legacyBehavior>
-              <a className="btn btn-indigo flex items-center justify-center transition-all duration-150 ease-in-out group text-sm px-4 py-2.5">
-                <Users className="w-5 h-5 mr-2 group-hover:scale-105 transition-transform" />
-                View Contributors
-              </a>
+            {/* Link 2: View Contributors - NEW Link syntax */}
+            <Link
+              href="/chat/repository-contributors"
+              className="btn btn-indigo flex items-center justify-center transition-all duration-150 ease-in-out group text-sm px-4 py-2.5"
+            >
+              <Users className="w-5 h-5 mr-2 group-hover:scale-105 transition-transform" />
+              View Contributors
             </Link>
           </div>
         </div>
@@ -135,11 +150,9 @@ export default function ChatPage() {
           </div>
         )}
 
-
         {/* Quick Prompts (as before) */}
         <div className="mb-4">
-          {/* ... quick prompts jsx ... */}
-           <p className="text-sm font-medium text-gray-600 mb-2">Suggestions:</p>
+          <p className="text-sm font-medium text-gray-600 mb-2">Suggestions:</p>
           <div className="flex flex-wrap gap-2">
             {quickPrompts.map((prompt, index) => (
               <button
@@ -155,8 +168,8 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Chat Messages Display (as before, ensure full implementation) */}
-        <div className="flex-1 space-y-4 overflow-y-auto mb-4 p-4 bg-white rounded-xl shadow-lg border border-gray-200 min-h-[300px] max-h-[55vh]"> {/* Adjusted max-h */}
+        {/* Chat Messages Display (as before) */}
+        <div className="flex-1 space-y-4 overflow-y-auto mb-4 p-4 bg-white rounded-xl shadow-lg border border-gray-200 min-h-[300px] max-h-[55vh]">
          {chatDisplayMessages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[85%] rounded-xl px-4 py-3 shadow-sm ${msg.isFromUser ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'}`}>
@@ -170,7 +183,7 @@ export default function ChatPage() {
           {isAiTyping && ( <div className="flex justify-start"><div className="max-w-[85%] rounded-xl px-4 py-3 shadow-sm bg-gray-100 text-gray-800"><div className="flex items-center space-x-1.5"><div className="h-2 w-2 animate-pulse rounded-full bg-gray-400"></div><div className="h-2 w-2 animate-pulse rounded-full bg-gray-400 [animation-delay:0.2s]"></div><div className="h-2 w-2 animate-pulse rounded-full bg-gray-400 [animation-delay:0.4s]"></div><span className="ml-1 text-xs text-gray-500">GitBoss AI is typing...</span></div></div></div>)}
         </div>
 
-        {/* Chat Input Form (as before, ensure full implementation) */}
+        {/* Chat Input Form (as before) */}
         <form onSubmit={handleSendMessage} className="flex items-center gap-2 pt-4 border-t border-gray-200">
            <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder={isConnected ? "Ask GitBoss AI..." : "Connecting..."} className="input flex-1 !text-sm" disabled={!isConnected || isAiTyping} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { handleSendMessage(); e.preventDefault();}}}/>
           <button type="submit" className="btn btn-primary p-2.5" disabled={!isConnected || isAiTyping || !input.trim()} title="Send"><Send className="w-5 h-5" /></button>
@@ -180,11 +193,10 @@ export default function ChatPage() {
         <div className="mt-8 p-6 border border-gray-200 rounded-xl bg-white shadow-lg space-y-6">
             <div>
                 <h3 className="text-lg font-semibold mb-4 text-gray-700 flex items-center">
-                    <FileSearch className="w-5 h-5 mr-2 text-gray-500"/> {/* Added Icon */}
+                    <FileSearch className="w-5 h-5 mr-2 text-gray-500"/>
                     Quick Test: Single PR Analysis
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
-                    {/* PR Number, Owner, Repo inputs */}
                     <div className="sm:col-span-1">
                         <label htmlFor="prNumberInputPage" className="block text-xs font-medium text-gray-600 mb-1">PR #</label>
                         <input id="prNumberInputPage" type="number" value={prNumberInput} onChange={(e) => setPrNumberInput(e.target.value)} placeholder="PR #" className="input w-full"/>
@@ -211,10 +223,8 @@ export default function ChatPage() {
   );
 }
 
-// Ensure these utility classes are defined in your globals.css or Tailwind config
-// .input { @apply block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 transition-colors duration-150 ease-in-out; }
-// .btn { @apply inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 cursor-pointer; }
-// .btn-primary { @apply bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 disabled:bg-blue-400; }
+// Ensure utility classes for .input, .btn, .btn-primary, .btn-outline-primary, .btn-indigo, .btn-secondary
+// are defined in your globals.css or Tailwind config.
+// For example:
 // .btn-outline-primary { @apply bg-transparent border-2 border-blue-600 text-blue-700 hover:bg-blue-100 focus:ring-blue-500 disabled:border-gray-300 disabled:text-gray-400; }
 // .btn-indigo { @apply bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500 disabled:bg-indigo-400; }
-// .btn-secondary { @apply bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500 disabled:bg-gray-400; }

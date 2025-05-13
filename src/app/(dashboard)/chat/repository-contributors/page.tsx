@@ -1,208 +1,225 @@
-// my_project/frontend copy/src/app/(dashboard)/chat/page.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { analyzePullRequest, PRAnalysisResponse } from '@/utils/api';
-import { useUser } from "@/contexts/UserContext";
-import { useWebSocketChat, Message as ChatMessage } from '@/hooks/useWebSocketChat';
-import { RefreshCw, MessageSquare, ListChecks, Send, Users // Added Users icon
-} from 'lucide-react';
+import React, { useState, useCallback, FormEvent } from 'react';
+import { getRepositoryContributors, ContributorListItemAPI } from '@/utils/api';
+import { Users, AlertCircle, Search, Loader2, ExternalLink, Github, ArrowLeft, Filter } from 'lucide-react'; // Added Filter
 import Link from 'next/link';
+import Image from 'next/image';
 
-const quickPrompts = [
-  "Analyze commit patterns for owner/repo",
-  "Provide a sprint summary for owner/repo",
-  "Find bottlenecks in owner/repo",
-  "Suggest review process improvements for owner/repo",
-];
+// Helper date functions (getTodayDateString, getPastDateString - if needed, otherwise remove)
 
-export default function ChatPage() {
-  const { user } = useUser();
-  const {
-    messages: wsMessages,
-    sendMessage,
-    isConnected,
-    error: wsError,
-    isTyping: isAiTyping
-  } = useWebSocketChat();
+export default function RepositoryContributorsPage() {
+  const [repoOwner, setRepoOwner] = useState<string>("");
+  const [repoName, setRepoName] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
-  const [chatDisplayMessages, setChatDisplayMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
+  const [contributorsList, setContributorsList] = useState<ContributorListItemAPI[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasFetched, setHasFetched] = useState(false);
 
-  const [prNumberInput, setPrNumberInput] = useState<string>("33165");
-  const [repoOwnerInput, setRepoOwnerInput] = useState<string>("facebook");
-  const [repoNameInput, setRepoNameInput] = useState<string>("react");
-  const [analysisResult, setAnalysisResult] = useState<PRAnalysisResponse | null>(null);
-  const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setChatDisplayMessages(wsMessages);
-  }, [wsMessages]);
-
-  useEffect(() => {
-    if (isConnected && chatDisplayMessages.length === 0 && !isAiTyping) {
-      const initialMessage: ChatMessage = {
-        id: `ai_greeting_${Date.now()}`,
-        content: "Hello! I'm your GitBoss AI assistant. How can I assist you today?",
-        sender: "GitBoss AI",
-        timestamp: Date.now(),
-        isFromUser: false,
-      };
-      setChatDisplayMessages([initialMessage]);
-    }
-  }, [isConnected, chatDisplayMessages.length, isAiTyping]);
-
-  const handleSendMessage = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!input.trim() || !isConnected) return;
-    const userMessage: ChatMessage = {
-      id: `user_${Date.now()}`,
-      content: input.trim(),
-      sender: user?.username || "User",
-      timestamp: Date.now(),
-      isFromUser: true,
-    };
-    setChatDisplayMessages(prev => [...prev, userMessage]);
-    sendMessage(input.trim());
-    setInput("");
-  };
-
-  const handleQuickPrompt = (prompt: string) => {
-    if (!isConnected) {
-      alert("Not connected. Please wait or check connection.");
+  const fetchContributors = useCallback(async () => {
+    if (!repoOwner.trim() || !repoName.trim()) {
+      setError("Repository owner and name are required.");
+      setHasFetched(true);
       return;
     }
-    const userMessage: ChatMessage = {
-      id: `user_prompt_${Date.now()}`,
-      content: prompt,
-      sender: user?.username || "User",
-      timestamp: Date.now(),
-      isFromUser: true,
-    };
-    setChatDisplayMessages(prev => [...prev, userMessage]);
-    sendMessage(prompt);
-  };
-
-  const handleAnalyzePrViaApi = async () => {
-    // ... (implementation as before) ...
-    setIsLoadingAnalysis(true);
-    setAnalysisResult(null);
-    setAnalysisError(null);
+    setIsLoading(true);
+    setError(null);
+    setContributorsList([]);
+    setHasFetched(true);
     try {
-      const prNum = parseInt(prNumberInput, 10);
-      if (isNaN(prNum)) throw new Error("PR Number must be valid.");
-      if (!repoOwnerInput.trim() || !repoNameInput.trim()) throw new Error("Owner/Repo required.");
-      const result = await analyzePullRequest(prNum, repoOwnerInput.trim(), repoNameInput.trim());
-      setAnalysisResult(result);
+      const result = await getRepositoryContributors(repoOwner.trim(), repoName.trim());
+      setContributorsList(result);
+      if (result.length === 0) {
+        setError(`No contributors found for ${repoOwner}/${repoName}. This might also indicate the repository doesn't exist or is private and inaccessible with the current token.`);
+      }
     } catch (err: any) {
-      setAnalysisError(err.message || "Failed to analyze PR.");
+      setError(err.message || "Failed to fetch contributors list.");
     } finally {
-      setIsLoadingAnalysis(false);
+      setIsLoading(false);
     }
+  }, [repoOwner, repoName]);
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    fetchContributors();
   };
+  
+  // Filter contributors based on search query
+  const filteredContributors = contributorsList.filter(contributor => 
+    contributor.username.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className="h-full p-4 md:p-6 lg:p-8 bg-gray-100">
-      <div className="flex h-full flex-col max-w-4xl mx-auto">
-        <div className="flex flex-col sm:flex-row items-center justify-between mb-6 pb-4 border-b border-gray-300 gap-3">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center">
-            <MessageSquare className="w-8 h-8 mr-3 text-blue-600" />
-            AI Assistant
-          </h1>
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Link href="/chat/recent-prs" legacyBehavior>
-              <a className="btn btn-outline-primary flex items-center justify-center transition-all duration-150 ease-in-out group w-full">
-                <ListChecks className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                Browse Recent PRs
-              </a>
-            </Link>
-            <Link href="/chat/repository-contributors" legacyBehavior> {/* NEW BUTTON */}
-              <a className="btn btn-outline-indigo flex items-center justify-center transition-all duration-150 ease-in-out group w-full">
-                <Users className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                View Contributors
-              </a>
-            </Link>
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-gray-100 min-h-screen">
+      <div className="flex flex-col sm:flex-row items-center justify-between mb-6 pb-4 border-b border-gray-300">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center mb-2 sm:mb-0">
+          <Users className="w-8 h-8 mr-3 text-indigo-600" />
+          Repository Contributors
+        </h1>
+        {/* Modernized Link */}
+        <Link
+          href="/chat"
+          className="flex items-center text-sm text-blue-600 hover:text-blue-700 hover:underline transition-colors duration-150"
+        >
+          <ArrowLeft className="w-4 h-4 mr-1" />
+          Back to Chat Assistant
+        </Link>
+      </div>
+
+      <div className="bg-white p-6 rounded-xl shadow-lg">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <div className="md:col-span-1">
+            <label htmlFor="contribRepoOwner" className="block text-sm font-medium text-gray-700 mb-1">
+              Repository Owner
+            </label>
+            <input
+              type="text"
+              id="contribRepoOwner"
+              value={repoOwner}
+              onChange={(e) => setRepoOwner(e.target.value)}
+              placeholder="e.g., facebook"
+              className="input w-full"
+              required
+            />
+          </div>
+          <div className="md:col-span-1">
+            <label htmlFor="contribRepoName" className="block text-sm font-medium text-gray-700 mb-1">
+              Repository Name
+            </label>
+            <input
+              type="text"
+              id="contribRepoName"
+              value={repoName}
+              onChange={(e) => setRepoName(e.target.value)}
+              placeholder="e.g., react"
+              className="input w-full"
+              required
+            />
+          </div>
+          <div className="md:col-span-1">
+            <button
+              type="submit"
+              className="btn btn-primary w-full flex items-center justify-center transition-all duration-150 ease-in-out group"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              ) : (
+                <Search className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+              )}
+              {isLoading ? 'Fetching...' : 'Fetch Contributors'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {!hasFetched && !isLoading && (
+        <div className="my-4 text-center text-gray-500 py-12 bg-white rounded-xl shadow-lg">
+          <Users className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+          <p className="text-lg font-medium">Enter Repository Details</p>
+          <p className="text-sm">Fill in the repository owner and name above, then click "Fetch Contributors" to load the data.</p>
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="flex flex-col justify-center items-center py-12 text-center">
+          <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-3" />
+          <p className="text-gray-600 font-medium">Loading Contributors...</p>
+        </div>
+      )}
+
+      {error && !isLoading && (
+        <div className="my-4 flex items-start rounded-lg border-l-4 border-red-500 bg-red-100 p-4 text-red-700 shadow-md">
+          <AlertCircle className="mr-3 h-6 w-6 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold">Error Fetching Data</p>
+            <p className="text-sm">{error}</p>
           </div>
         </div>
+      )}
 
-        {/* ... (WebSocket Connection Status, Quick Prompts, Chat Messages Display, Chat Input Form as before) ... */}
-        {/* Example for quick prompts - ensure styling is consistent */}
-         <div className="mb-4">
-          <p className="text-sm font-medium text-gray-600 mb-2">Suggestions:</p>
-          <div className="flex flex-wrap gap-2">
-            {quickPrompts.map((prompt, index) => (
-              <button
-                key={index}
-                onClick={() => handleQuickPrompt(prompt)}
-                className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-xs sm:text-sm hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all duration-150 ease-in-out"
-                disabled={!isConnected}
-                title={!isConnected ? "Connect to AI to use prompts" : prompt}
+      {!isLoading && !error && hasFetched && contributorsList.length > 0 && (
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-800 mb-3">
+              Displaying {filteredContributors.length} of {contributorsList.length} Contributor(s) for <span className="font-medium text-indigo-700">{repoOwner}/{repoName}</span>
+            </h2>
+            
+            {/* Search bar for filtering contributors */}
+            <div className="relative max-w-md">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <Filter className="w-4 h-4 text-gray-500" />
+              </div>
+              <input
+                type="text"
+                className="input pl-10 w-full"
+                placeholder="Search contributors by username..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-6">
+            {filteredContributors.map((contributor) => (
+              <div
+                key={contributor.username}
+                className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:shadow-xl transition-shadow duration-200 ease-in-out bg-gray-50/50"
               >
-                {prompt}
-              </button>
+                {contributor.avatar_url ? (
+                  <Image
+                    src={contributor.avatar_url}
+                    alt={`${contributor.username}'s avatar`}
+                    width={80}
+                    height={80}
+                    className="rounded-full mb-3 shadow-md"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-full mb-3 bg-gray-300 flex items-center justify-center text-gray-500 shadow-md">
+                    <Github className="w-10 h-10" />
+                  </div>
+                )}
+                <Link
+                  href={contributor.profile_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-md font-semibold text-indigo-600 hover:text-indigo-700 hover:underline mb-1 text-center"
+                >
+                  {contributor.username}
+                </Link>
+                <p className="text-sm text-gray-600">
+                  Contributions: <span className="font-bold text-gray-800">{contributor.contributions}</span>
+                </p>
+                 <Link
+                    href={contributor.profile_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center text-xs text-gray-500 hover:text-indigo-600 transition-colors"
+                    title={`View ${contributor.username}'s profile on GitHub`}
+                  >
+                    View Profile <ExternalLink className="h-3 w-3 ml-1" />
+                  </Link>
+              </div>
             ))}
           </div>
-        </div>
-
-        {/* Chat Messages Display (ensure this part is complete from your previous version) */}
-        <div className="flex-1 space-y-4 overflow-y-auto mb-4 p-4 bg-white rounded-xl shadow-lg border border-gray-200 min-h-[300px] max-h-[60vh]">
-         {chatDisplayMessages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] rounded-xl px-4 py-3 shadow-sm ${msg.isFromUser ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'}`}>
-                <p className="text-sm whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: msg.content.replace(/\n/g, '<br />') }}></p>
-                <div className={`mt-1.5 text-xs opacity-70 ${msg.isFromUser ? 'text-blue-200' : 'text-gray-500'} text-right`}>
-                  {msg.sender} - {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </div>
-              </div>
+          
+          {filteredContributors.length === 0 && searchQuery && (
+            <div className="text-center py-10">
+              <p className="text-gray-600">No contributors matching "{searchQuery}"</p>
             </div>
-          ))}
-          {isAiTyping && ( /* AI Typing indicator */ <div className="flex justify-start"><div className="max-w-[85%] rounded-xl px-4 py-3 shadow-sm bg-gray-100 text-gray-800"><div className="flex items-center space-x-1.5"><div className="h-2 w-2 animate-pulse rounded-full bg-gray-400"></div><div className="h-2 w-2 animate-pulse rounded-full bg-gray-400 [animation-delay:0.2s]"></div><div className="h-2 w-2 animate-pulse rounded-full bg-gray-400 [animation-delay:0.4s]"></div><span className="ml-1 text-xs text-gray-500">GitBoss AI is typing...</span></div></div></div>)}
+          )}
         </div>
+      )}
 
-        {/* Chat Input Form (ensure this part is complete) */}
-        <form onSubmit={handleSendMessage} className="flex items-center gap-2 pt-4 border-t border-gray-200">
-           <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder={isConnected ? "Ask GitBoss AI..." : "Connecting..."} className="input flex-1 !text-sm" disabled={!isConnected || isAiTyping} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { handleSendMessage(); e.preventDefault();}}}/>
-          <button type="submit" className="btn btn-primary p-2.5" disabled={!isConnected || isAiTyping || !input.trim()} title="Send"><Send className="w-5 h-5" /></button>
-        </form>
-
-
-        {/* Test Single PR Analysis Section (as before) */}
-        <div className="mt-8 p-6 border border-gray-200 rounded-xl bg-white shadow-lg space-y-6">
-            <div>
-                <h3 className="text-lg font-semibold mb-4 text-gray-700">Quick Test: Single PR Analysis</h3>
-                {/* ... Form for single PR analysis ... */}
-                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
-                    <div className="sm:col-span-1">
-                        <label htmlFor="prNumberInputPage" className="block text-xs font-medium text-gray-600 mb-1">PR #</label>
-                        <input id="prNumberInputPage" type="number" value={prNumberInput} onChange={(e) => setPrNumberInput(e.target.value)} placeholder="PR #" className="input w-full"/>
-                    </div>
-                    <div className="sm:col-span-1">
-                        <label htmlFor="repoOwnerInputPage" className="block text-xs font-medium text-gray-600 mb-1">Owner</label>
-                        <input id="repoOwnerInputPage" type="text" value={repoOwnerInput} onChange={(e) => setRepoOwnerInput(e.target.value)} placeholder="Owner" className="input w-full"/>
-                    </div>
-                    <div className="sm:col-span-1">
-                        <label htmlFor="repoNameInputPage" className="block text-xs font-medium text-gray-600 mb-1">Repo</label>
-                        <input id="repoNameInputPage" type="text" value={repoNameInput} onChange={(e) => setRepoNameInput(e.target.value)} placeholder="Repo" className="input w-full"/>
-                    </div>
-                    <button onClick={handleAnalyzePrViaApi} className="btn btn-secondary w-full sm:w-auto flex items-center justify-center group" disabled={isLoadingAnalysis}>
-                        <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingAnalysis ? 'animate-spin' : 'group-hover:rotate-90 transition-transform'}`} />
-                        {isLoadingAnalysis ? 'Analyzing...' : 'Analyze'}
-                    </button>
-                </div>
-                {analysisError && <p className="text-red-600 text-xs mt-2 bg-red-50 p-2 rounded-md">{analysisError}</p>}
-                {analysisResult && ( <div className="mt-3 p-3 border border-gray-200 rounded-md bg-gray-50 text-sm space-y-1"> <p><strong>Summary:</strong> {analysisResult.prSummary}</p> <p><strong>Contributions:</strong> {analysisResult.contributionAnalysis}</p> {analysisResult.linkedIssuesSummary && <p><strong>Linked Issues:</strong> {analysisResult.linkedIssuesSummary}</p>} </div>)}
-            </div>
+      {!isLoading && hasFetched && contributorsList.length === 0 && !error && (
+         <div className="my-4 text-center text-gray-500 py-12 bg-white rounded-xl shadow-lg">
+            <Users className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+            <p className="text-lg font-medium">No Contributors Found</p>
+            <p className="text-sm">No contributors were found for this repository, or the repository might be private/inaccessible.</p>
         </div>
-      </div>
+      )}
     </div>
   );
 }
-
-// Add/ensure these utility classes are defined in your globals.css or Tailwind config:
-// .input { @apply block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 transition-colors duration-150 ease-in-out; }
-// .btn { @apply inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 cursor-pointer; }
-// .btn-primary { @apply bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 disabled:bg-blue-400; }
-// .btn-outline-primary { @apply bg-transparent border-blue-600 text-blue-700 hover:bg-blue-50 focus:ring-blue-500 disabled:border-gray-300 disabled:text-gray-400; }
-// .btn-outline-indigo { @apply bg-transparent border-indigo-600 text-indigo-700 hover:bg-indigo-50 focus:ring-indigo-500 disabled:border-gray-300 disabled:text-gray-400; }
-// .btn-secondary { @apply bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500 disabled:bg-gray-400; }

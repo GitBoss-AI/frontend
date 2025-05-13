@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, FormEvent, useEffect } from 'react';
+import React, { useState, useCallback, FormEvent } from 'react';
 import { getRepositoryPRs, PRListItemAPI, analyzePullRequest, PRAnalysisResponse } from '@/utils/api';
 import {
   ListChecks, AlertCircle, ExternalLink, Search, Loader2, CalendarDays, Filter, ChevronDown, ChevronUp, FileText, Sparkles
@@ -21,8 +21,8 @@ const getPastDateString = (daysAgo: number) => {
 
 export default function RecentPRsPage() {
   // State for the PR list form
-  const [listRepoOwner, setListRepoOwner] = useState<string>("facebook");
-  const [listRepoName, setListRepoName] = useState<string>("react");
+  const [listRepoOwner, setListRepoOwner] = useState<string>("");
+  const [listRepoName, setListRepoName] = useState<string>("");
   const [listStartDate, setListStartDate] = useState<string>(getPastDateString(7));
   const [listEndDate, setListEndDate] = useState<string>(getTodayDateString());
   const [listPrStateFilter, setListPrStateFilter] = useState<string>("all");
@@ -80,11 +80,6 @@ export default function RecentPRsPage() {
       setIsLoadingList(false);
     }
   }, [listRepoOwner, listRepoName, listStartDate, listEndDate, listPrStateFilter]);
-
-  useEffect(() => { // Auto-fetch on initial load
-    fetchPRList();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const handleListFormSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -194,15 +189,14 @@ export default function RecentPRsPage() {
       <div className="bg-white p-6 rounded-xl shadow-lg">
         <h2 className="text-xl font-semibold text-gray-700 mb-4">Filter Recent Pull Requests</h2>
         <form onSubmit={handleListFormSubmit} className="space-y-4">
-          {/* ... Form inputs for listRepoOwner, listRepoName, listPrStateFilter, listStartDate, listEndDate ... (similar to previous response) ... */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 items-end">
             <div>
               <label htmlFor="listRepoOwner" className="block text-sm font-medium text-gray-700 mb-1">Owner</label>
-              <input type="text" id="listRepoOwner" value={listRepoOwner} onChange={(e) => setListRepoOwner(e.target.value)} placeholder="e.g., facebook" className="input w-full"/>
+              <input type="text" id="listRepoOwner" value={listRepoOwner} onChange={(e) => setListRepoOwner(e.target.value)} placeholder="e.g., facebook" className="input w-full" required/>
             </div>
             <div>
               <label htmlFor="listRepoName" className="block text-sm font-medium text-gray-700 mb-1">Repository</label>
-              <input type="text" id="listRepoName" value={listRepoName} onChange={(e) => setListRepoName(e.target.value)} placeholder="e.g., react" className="input w-full"/>
+              <input type="text" id="listRepoName" value={listRepoName} onChange={(e) => setListRepoName(e.target.value)} placeholder="e.g., react" className="input w-full" required/>
             </div>
             <div>
               <label htmlFor="listPrStateFilter" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
@@ -230,6 +224,14 @@ export default function RecentPRsPage() {
           </div>
         </form>
       </div>
+
+      {!hasFetchedList && !isLoadingList && (
+        <div className="my-4 text-center text-gray-500 py-12 bg-white rounded-xl shadow-lg">
+          <ListChecks className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+          <p className="text-lg font-medium">Enter Repository Details</p>
+          <p className="text-sm">Fill in the repository owner and name above, then click "Fetch List" to load the pull requests.</p>
+        </div>
+      )}
 
       {isLoadingList && (
         <div className="flex flex-col justify-center items-center py-12 text-center">

@@ -239,6 +239,94 @@ export interface PRListItemAPI {
   created_at: string; // Dates from API will be ISO strings
 }
 
+
+// --- Interfaces for Contributor Activity (matching Pydantic models in app.py) ---
+
+export interface CommitInfoAPI {
+  sha: string;
+  message: string;
+  html_url: string;
+  date: string; // datetime from Python will be string in JSON
+  additions?: number | null;
+  deletions?: number | null;
+  changed_files?: string[] | null;
+}
+
+// PRInfoAPI can reuse PRListItemAPI if the structure for authored PRs is the same,
+// or be more specific if needed (e.g., including description).
+// For consistency with the backend model, let's define it as potentially having more details.
+export interface PRInfoAPI {
+    number: number;
+    title: string;
+    description?: string | null;
+    state: string;
+    html_url: string;
+    created_at: string; // datetime
+    closed_at?: string | null; // datetime
+    merged_at?: string | null; // datetime
+}
+
+
+export interface PRActivityDetailAPI {
+  type: string; // "review" or "review_comment"
+  state?: string | null; // For reviews: APPROVED, CHANGES_REQUESTED, COMMENTED
+  body?: string | null;
+  submitted_at?: string | null; // datetime
+  created_at?: string | null;   // datetime
+  html_url: string;
+  path?: string | null;
+  line?: number | null;
+}
+
+export interface PRWithReviewActivityAPI {
+  pr_number: number;
+  pr_title: string;
+  pr_html_url: string;
+  pr_description?: string | null;
+  activities: PRActivityDetailAPI[];
+}
+
+export interface GeneralPRCommentAPI {
+  body: string;
+  created_at: string; // datetime
+  html_url: string;
+}
+
+export interface PRWithGeneralCommentsAPI {
+  pr_number: number;
+  pr_title: string;
+  pr_html_url: string;
+  pr_description?: string | null;
+  comments: GeneralPRCommentAPI[];
+}
+
+export interface IssueInfoAPI {
+  number: number;
+  title: string;
+  description?: string | null;
+  state: string;
+  html_url: string;
+  created_at: string; // datetime
+  closed_at?: string | null; // datetime
+  updated_at?: string | null; // datetime (added for assigned issues)
+}
+
+export interface ContributorActivityResponseAPI {
+  total_commits: number;
+  commits: CommitInfoAPI[];
+  total_lines_changed: number;
+  unique_files_changed_in_commits: string[];
+  authored_prs: PRInfoAPI[];      // Using the more detailed PRInfoAPI
+  assigned_prs?: PRInfoAPI[];     // Added for assigned PRs
+  reviews_and_review_comments: PRWithReviewActivityAPI[];
+  general_pr_comments: PRWithGeneralCommentsAPI[];
+  created_issues: IssueInfoAPI[];
+  assigned_issues?: IssueInfoAPI[]; // Added for assigned Issues
+  closed_issues_by_user: IssueInfoAPI[];
+}
+
+
+
 export async function getRepositoryPRs(
   repoOwner: string,
   repoName: string,
@@ -327,4 +415,40 @@ export async function getRepositoryContributors(
 
   const data: ContributorListItemAPI[] = await response.json();
   return data;
+}
+
+
+// --- Function to call the /contributor-activity/ endpoint ---
+export async function getContributorActivity(
+  repoOwner: string,
+  repoName: string,
+  username: string,
+  startDate: string, // YYYY-MM-DD
+  endDate: string    // YYYY-MM-DD
+): Promise<ContributorActivityResponseAPI> {
+  const token = getToken();
+  if (!token) {
+    throw new Error("Authentication token not found. Please log in.");
+  }
+
+  const url = new URL(`${AGENT_API_BASE}/contributor-activity/`);
+  url.searchParams.append('repo_owner', repoOwner);
+  url.searchParams.append('repo_name', repoName);
+  url.searchParams.append('username', username);
+  url.searchParams.append('start_date', startDate);
+  url.searchParams.append('end_date', endDate);
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: `HTTP error ${response.status}: ${response.statusText || 'Failed to fetch'}` }));
+    throw new Error(errorData.detail || `API request failed with status ${response.status}`);
+  }
+  return response.json();
 }

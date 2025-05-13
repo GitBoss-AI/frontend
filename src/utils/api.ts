@@ -153,49 +153,25 @@ export interface PRAnalysisResponse {
   discussionSummary: string;
 }
 
-export async function getQualityMetrics(
-  owner: string,
-  repo: string,
-  range: "week" | "month" | "quarter"
-): Promise<QualityMetricsResponse> {
-  const url = new URL(`${AGENT_API_BASE}/repo/quality-metrics`);
-  url.searchParams.append("owner", owner);
-  url.searchParams.append("repo", repo);
-  url.searchParams.append("range", range);
-
-  const response = await fetch(url.toString(), {
-    headers: {
-      Accept: "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || `Failed to fetch quality metrics`);
-  }
-
-  return await response.json();
-}
-
 export interface BuildInfo {
   id: number;
   status: "success" | "failure" | string;
   duration_seconds: number;
   started_at: string;
   commit_sha: string;
-  commit_url: string;
   build_url: string;
+  triggered_by: string;
 }
 
 export async function getRecentBuilds(
   owner: string,
   repo: string,
-  limit: number = 10
+  range: "week" | "month" | "quarter"
 ): Promise<BuildInfo[]> {
   const url = new URL(`${AGENT_API_BASE}/repo/builds`);
   url.searchParams.append("owner", owner);
   url.searchParams.append("repo", repo);
-  url.searchParams.append("limit", String(limit));
+  url.searchParams.append("range", range);
 
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error("Failed to fetch recent builds");

@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react";
 import {
-  getRepoMonthlyStats,
+  getRepoStats,
   ContributorStats,
   getTopContributorStats,
   getTeamActivityTimeline,
   TimelineEntry,
   getRecentActivity,
-  RecentActivityItem,
+  RecentActivityItem, getDashboardData,
 } from "@/utils/api";
 import {
   AreaChart,
@@ -59,7 +59,6 @@ export default function DashboardPage() {
   const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
   const [isLoadingRecentActivity, setIsLoadingRecentActivity] = useState(false);
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
-
   const [repos, setRepos] = useState<{ owner: string; repo: string; label: string; }[]>([]);
 
   useEffect(() => {
@@ -69,14 +68,8 @@ export default function DashboardPage() {
     const saved = sessionStorage.getItem("selectedRepo");
     if (saved) {
       const parsed = JSON.parse(saved);
-      const match = loadedRepos.find(
-        (r) => r.owner === parsed.owner && r.repo === parsed.repo
-      );
-      if (match) {
-        setSelectedRepo(match);
-      } else if (loadedRepos.length > 0) {
-        setSelectedRepo(loadedRepos[0]);
-      }
+      const match = loadedRepos.find(r => r.owner === parsed.owner && r.repo === parsed.repo);
+      setSelectedRepo(match || loadedRepos[0]);
     } else if (loadedRepos.length > 0) {
       setSelectedRepo(loadedRepos[0]);
     }
@@ -91,137 +84,57 @@ export default function DashboardPage() {
     sessionStorage.setItem("timeWindow", timeWindow);
   }, [timeWindow]);
 
-  // For stats
   useEffect(() => {
     if (!selectedRepo) return;
-
-    const loadStats = async () => {
-      setIsLoadingStats(true);
-      try {
-        const range = getRangeParam(timeWindow);
-        const stats = await getRepoMonthlyStats(selectedRepo.owner, selectedRepo.repo, range);
-        setRepoStats({
-          commits: stats.commits.count,
-          commitsChange: stats.commits.change,
-          open_prs: stats.prs.count,
-          prsChange: stats.prs.change,
-          reviews: stats.reviews.count,
-          reviewsChange: stats.reviews.change,
-          issues: stats.issues.count,
-          issuesChange: stats.issues.change,
-        });
-      } catch (err) {
-        console.error("Stats load failed", err);
-      } finally {
-        setIsLoadingStats(false);
-      }
-    };
-
-    loadStats();
+    const key = `dashboardData:${selectedRepo.owner}/${selectedRepo.repo}:${getRangeParam(timeWindow)}`;
+    const cached = sessionStorage.getItem(key);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      setRepoStats(parsed.stats);
+      setTopContributors(parsed.contributors);
+      setTimelineData(parsed.timeline);
+      setRecentActivity(parsed.recent);
+      setHasFetchedOnce(true);
+    }
   }, [selectedRepo, timeWindow]);
-
-  // For contributors
-  useEffect(() => {
-    if (!selectedRepo) return;
-
-    const loadContributors = async () => {
-      setIsLoadingContributors(true);
-      try {
-        const range = getRangeParam(timeWindow);
-        const contributors = await getTopContributorStats(selectedRepo.owner, selectedRepo.repo, range);
-        setTopContributors(contributors);
-      } catch (err) {
-        console.error("Contributors load failed", err);
-      } finally {
-        setIsLoadingContributors(false);
-      }
-    };
-
-    loadContributors();
-  }, [selectedRepo, timeWindow]);
-
-  // For timeline
-  useEffect(() => {
-    if (!selectedRepo) return;
-
-    const loadTimeline = async () => {
-      setIsLoadingTimeline(true);
-      try {
-        const range = getRangeParam(timeWindow);
-        const timeline = await getTeamActivityTimeline(selectedRepo.owner, selectedRepo.repo, range);
-        setTimelineData(timeline);
-      } catch (err) {
-        console.error("Timeline load failed", err);
-      } finally {
-        setIsLoadingTimeline(false);
-      }
-    };
-
-    loadTimeline();
-  }, [selectedRepo, timeWindow]);
-
-  // For recent activity
-  useEffect(() => {
-    if (!selectedRepo) return;
-
-    const loadRecent = async () => {
-      setIsLoadingRecentActivity(true);
-      try {
-        const recent = await getRecentActivity(selectedRepo.owner, selectedRepo.repo);
-        setRecentActivity(recent);
-      } catch (err) {
-        console.error("Recent activity load failed", err);
-      } finally {
-        setIsLoadingRecentActivity(false);
-      }
-    };
-
-    loadRecent();
-  }, [selectedRepo]);
 
   const fetchDashboardData = async () => {
     if (!selectedRepo) return;
 
     const range = getRangeParam(timeWindow);
+    const key = `dashboardData:${selectedRepo.owner}/${selectedRepo.repo}:${range}`;
     setHasFetchedOnce(true);
+
     setIsLoadingStats(true);
     setIsLoadingContributors(true);
     setIsLoadingTimeline(true);
     setIsLoadingRecentActivity(true);
 
     try {
-      const [stats, contributors, timeline, recent] = await Promise.all([
-        getRepoMonthlyStats(selectedRepo.owner, selectedRepo.repo, range),
-        getTopContributorStats(selectedRepo.owner, selectedRepo.repo, range),
-        getTeamActivityTimeline(selectedRepo.owner, selectedRepo.repo, range),
-        getRecentActivity(selectedRepo.owner, selectedRepo.repo),
-      ]);
+      const data = await getDashboardData(selectedRepo.owner, selectedRepo.repo, range);
 
       const formattedStats = {
-        commits: stats.commits.count,
-        commitsChange: stats.commits.change,
-        open_prs: stats.prs.count,
-        prsChange: stats.prs.change,
-        reviews: stats.reviews.count,
-        reviewsChange: stats.reviews.change,
-        issues: stats.issues.count,
-        issuesChange: stats.issues.change,
+        commits: data.commits.count,
+        commitsChange: data.commits.change,
+        open_prs: data.prs.count,
+        prsChange: data.prs.change,
+        reviews: data.reviews.count,
+        reviewsChange: data.reviews.change,
+        issues: data.issues.count,
+        issuesChange: data.issues.change,
       };
 
       setRepoStats(formattedStats);
-      setTopContributors(contributors);
-      setTimelineData(timeline);
-      setRecentActivity(recent);
+      setTopContributors(data.contributors);
+      setTimelineData(data.timeline);
+      setRecentActivity(data.recent);
 
-      sessionStorage.setItem(
-        "dashboardData",
-        JSON.stringify({
-          stats: formattedStats,
-          contributors,
-          timeline,
-          recent,
-        })
-      );
+      sessionStorage.setItem(key, JSON.stringify({
+        stats: formattedStats,
+        contributors: data.contributors,
+        timeline: data.timeline,
+        recent: data.recent,
+      }));
     } catch (err) {
       console.error("❌ Failed to load dashboard data", err);
     } finally {

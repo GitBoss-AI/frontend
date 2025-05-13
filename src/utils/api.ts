@@ -70,6 +70,41 @@ export async function getRepositoryStats(
   return data;
 }
 
+export interface ContributorStats {
+  username: string;
+  commits: number;
+  prs: number;
+  reviews: number;
+}
+
+export async function getTopContributorStats(
+  owner: string,
+  repo: string,
+  range: "week" | "month" | "quarter"
+): Promise<ContributorStats[]> {
+  const url = new URL(`${AGENT_API_BASE}/repo/contributors/stats`);
+  url.searchParams.append("owner", owner);
+  url.searchParams.append("repo", repo);
+  url.searchParams.append("range", range);
+
+  const response = await fetch(url.toString(), {
+    headers: { Accept: "application/json" },
+  });
+
+  if (!response.ok) {
+    let errorData;
+    try {
+      errorData = await response.json();
+      throw new Error(errorData.detail || `Request failed: ${response.statusText}`);
+    } catch {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+  }
+
+  const data = await response.json();
+  return data.contributors;
+}
+
 // Contributor endpoints
 export async function getContributorStats(
   githubUsername: string,

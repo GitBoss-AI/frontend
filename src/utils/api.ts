@@ -5,7 +5,7 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ||
   "https://gitboss-ai.emirbosnak.com/api-dev";
 
-const AGENT_API_BASE = process.env.NEXT_PUBLIC_AGENT_API_BASE || "http://localhost:8003"; // Example: Use env var or default
+const AGENT_API_BASE = "http://localhost:8003"; // Example: Use env var or default
 
 
 // Repository endpoints
@@ -157,10 +157,6 @@ export async function analyzePullRequest(
   repoOwner: string,
   repoName: string
 ): Promise<PRAnalysisResponse> { // Add return type
-  const token = getToken();
-  if (!token) {
-    throw new Error("Authentication token not found.");
-  }
 
   const url = new URL(`${AGENT_API_BASE}/analyze-pr/`);
   url.searchParams.append('pr_number', String(prNumber));
@@ -170,11 +166,8 @@ export async function analyzePullRequest(
   const response = await fetch(url.toString(), {
     method: 'GET', // Or POST if you change the backend endpoint
     headers: {
-      'Authorization': `Bearer ${token}`, // Add the JWT token
       'Accept': 'application/json',
     },
-    // If using POST, add body: JSON.stringify({ pr_number: ..., ... })
-    // and 'Content-Type': 'application/json' header
   });
 
   if (!response.ok) {
@@ -304,10 +297,6 @@ export async function getRepositoryPRs(
   endDate?: string,   // Optional YYYY-MM-DD
   state: string = "all" // Add state parameter
 ): Promise<PRListItemAPI[]> {
-  const token = getToken();
-  if (!token) {
-    throw new Error("Authentication token not found.");
-  }
 
   const url = new URL(`${AGENT_API_BASE}/repository-prs/`);
   url.searchParams.append('repo_owner', repoOwner);
@@ -324,7 +313,6 @@ export async function getRepositoryPRs(
   const response = await fetch(url.toString(), {
     method: 'GET',
     headers: {
-      'Authorization': `Bearer ${token}`,
       'Accept': 'application/json',
     },
   });
@@ -356,10 +344,6 @@ export async function getRepositoryContributors(
   repoOwner: string,
   repoName: string
 ): Promise<ContributorListItemAPI[]> {
-  const token = getToken();
-  if (!token) {
-    throw new Error("Authentication token not found. Please log in.");
-  }
 
   const url = new URL(`${AGENT_API_BASE}/repository-contributors/`);
   url.searchParams.append('repo_owner', repoOwner);
@@ -368,7 +352,6 @@ export async function getRepositoryContributors(
   const response = await fetch(url.toString(), {
     method: 'GET',
     headers: {
-      'Authorization': `Bearer ${token}`,
       'Accept': 'application/json',
     },
   });
@@ -396,10 +379,6 @@ export async function getContributorActivity(
   startDate: string, // YYYY-MM-DD
   endDate: string    // YYYY-MM-DD
 ): Promise<ContributorActivityResponseAPI> {
-  const token = getToken();
-  if (!token) {
-    throw new Error("Authentication token not found. Please log in.");
-  }
 
   const url = new URL(`${AGENT_API_BASE}/contributor-activity/`);
   url.searchParams.append('repo_owner', repoOwner);
@@ -411,7 +390,6 @@ export async function getContributorActivity(
   const response = await fetch(url.toString(), {
     method: 'GET',
     headers: {
-      'Authorization': `Bearer ${token}`,
       'Accept': 'application/json',
     },
   });

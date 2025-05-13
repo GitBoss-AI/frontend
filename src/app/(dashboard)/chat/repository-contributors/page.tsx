@@ -182,9 +182,7 @@ export default function RepositoryContributorsPage() {
                   </div>
                 )}
                 <Link
-                  href={contributor.profile_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={`/chat/contributor-analysis?username=${contributor.username}&owner=${repoOwner}&repo=${repoName}`}
                   className="text-md font-semibold text-indigo-600 hover:text-indigo-700 hover:underline mb-1 text-center"
                 >
                   {contributor.username}
@@ -192,15 +190,15 @@ export default function RepositoryContributorsPage() {
                 <p className="text-sm text-gray-600">
                   Contributions: <span className="font-bold text-gray-800">{contributor.contributions}</span>
                 </p>
-                 <Link
-                    href={contributor.profile_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-flex items-center text-xs text-gray-500 hover:text-indigo-600 transition-colors"
-                    title={`View ${contributor.username}'s profile on GitHub`}
-                  >
-                    View Profile <ExternalLink className="h-3 w-3 ml-1" />
-                  </Link>
+                <Link
+                  href={contributor.profile_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center text-xs text-gray-500 hover:text-indigo-600 transition-colors"
+                  title={`View ${contributor.username}'s profile on GitHub`}
+                >
+                  View GitHub Profile <ExternalLink className="h-3 w-3 ml-1" />
+                </Link>
               </div>
             ))}
           </div>

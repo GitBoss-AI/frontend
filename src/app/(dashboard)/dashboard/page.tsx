@@ -91,17 +91,93 @@ export default function DashboardPage() {
     sessionStorage.setItem("timeWindow", timeWindow);
   }, [timeWindow]);
 
+  // For stats
   useEffect(() => {
-    const cached = sessionStorage.getItem("dashboardData");
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      setRepoStats(parsed.stats);
-      setTopContributors(parsed.contributors);
-      setTimelineData(parsed.timeline);
-      setRecentActivity(parsed.recent);
-      setHasFetchedOnce(true);
-    }
-  }, []);
+    if (!selectedRepo) return;
+
+    const loadStats = async () => {
+      setIsLoadingStats(true);
+      try {
+        const range = getRangeParam(timeWindow);
+        const stats = await getRepoMonthlyStats(selectedRepo.owner, selectedRepo.repo, range);
+        setRepoStats({
+          commits: stats.commits.count,
+          commitsChange: stats.commits.change,
+          open_prs: stats.prs.count,
+          prsChange: stats.prs.change,
+          reviews: stats.reviews.count,
+          reviewsChange: stats.reviews.change,
+          issues: stats.issues.count,
+          issuesChange: stats.issues.change,
+        });
+      } catch (err) {
+        console.error("Stats load failed", err);
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
+
+    loadStats();
+  }, [selectedRepo, timeWindow]);
+
+  // For contributors
+  useEffect(() => {
+    if (!selectedRepo) return;
+
+    const loadContributors = async () => {
+      setIsLoadingContributors(true);
+      try {
+        const range = getRangeParam(timeWindow);
+        const contributors = await getTopContributorStats(selectedRepo.owner, selectedRepo.repo, range);
+        setTopContributors(contributors);
+      } catch (err) {
+        console.error("Contributors load failed", err);
+      } finally {
+        setIsLoadingContributors(false);
+      }
+    };
+
+    loadContributors();
+  }, [selectedRepo, timeWindow]);
+
+  // For timeline
+  useEffect(() => {
+    if (!selectedRepo) return;
+
+    const loadTimeline = async () => {
+      setIsLoadingTimeline(true);
+      try {
+        const range = getRangeParam(timeWindow);
+        const timeline = await getTeamActivityTimeline(selectedRepo.owner, selectedRepo.repo, range);
+        setTimelineData(timeline);
+      } catch (err) {
+        console.error("Timeline load failed", err);
+      } finally {
+        setIsLoadingTimeline(false);
+      }
+    };
+
+    loadTimeline();
+  }, [selectedRepo, timeWindow]);
+
+  // For recent activity
+  useEffect(() => {
+    if (!selectedRepo) return;
+
+    const loadRecent = async () => {
+      setIsLoadingRecentActivity(true);
+      try {
+        const recent = await getRecentActivity(selectedRepo.owner, selectedRepo.repo);
+        setRecentActivity(recent);
+      } catch (err) {
+        console.error("Recent activity load failed", err);
+      } finally {
+        setIsLoadingRecentActivity(false);
+      }
+    };
+
+    loadRecent();
+  }, [selectedRepo]);
 
   const fetchDashboardData = async () => {
     if (!selectedRepo) return;

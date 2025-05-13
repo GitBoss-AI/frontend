@@ -63,7 +63,7 @@ export async function getTopContributorStats(
   repo: string,
   range: "week" | "month" | "quarter"
 ): Promise<ContributorStats[]> {
-  const url = new URL(`${AGENT_API_BASE}/repo/contributors/stats`);
+  const url = new URL(`${AGENT_API_BASE}/repo/contributor-stats`);
   url.searchParams.append("owner", owner);
   url.searchParams.append("repo", repo);
   url.searchParams.append("range", range);

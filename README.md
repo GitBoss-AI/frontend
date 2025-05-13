@@ -1,55 +1,30 @@
 # GitBoss AI – Frontend
 
-This is the frontend codebase for the GitBoss AI project. It is built using Next.js and deployed to a self-hosted server for both development and production environments.
+## Setup 
 
-## Development Workflow
+1. Get the project from Github
+  ```
+  git clone https://github.com/GitBoss-AI/frontend
+  git switch dev
+  git pull
+  ```
 
-### Environment Configuration
+2. Create `.env` file with this
+  ```
+  NEXT_PUBLIC_API_BASE=http://localhost/dev
+  ```
 
-To ensure the frontend always talks to the correct backend during development, use the following environment variable:
+3. Run with pnpm
+   ```
+   pnpm i
+   pnpm dev
+   ```
 
-```NEXT_PUBLIC_API_URL=https://gitboss-ai.emirbosnak.com/api-dev```
+4. Access the site at `localhost:3001/dev`
 
-This ensures that:
-
-- Local development (npm run dev) uses the remote dev API
-- Preview builds and PRs also target the correct backend
-- No mismatch between local/remote environments
-
-Do not point to localhost or another API unless explicitly testing locally.
-
-### PRs and Branching
-
-- **Only open pull requests against the `dev` branch.**
-- **Do not** open PRs against `main` — that branch is reserved for production.
-
-### CI Check
-
-- When a PR is opened to `dev`, a GitHub Actions workflow will:
-  - Attempt to build the project
--  **Only merge if the build passes** — if it fails, the server will not update and the site will break.
-
-## Automatic Dev Deployment
-
-- Once a PR is merged into `dev`, the dev server will automatically pull the latest code and restart.
-- The development version of the site is available at:
-
-   **https://gitboss-ai.emirbosnak.com/dev**
-
-- This happens within ~2 minutes after merging (via polling-based CI/CD).
-
-## API Endpoint (Dev)
-
-The backend API for dev environment is available at:
-
-https://gitboss-ai.emirbosnak.com/api-dev
-
-Use this when making frontend requests during development. It is hosted alongside the frontend dev environment under a separate subpath.
-
-## Future Improvements (Planned)
-
-- Add web-accessible logs for the dev environment
-- Implement production deployment from `main`
-- Possibly migrate to webhook- or event-driven CI/CD if SSH becomes reliable
-- **Process Manager:** PM2
-- **CI/CD:** GitHub Actions → Tailscale-connected self-hosted server
+5. Login with a dev user
+   ```
+   username: gitboss-ai
+   password: gitboss
+   ```
+6. In the settings enter your github api token and the repos you want to track with owner/repo structure in a comma seperated list

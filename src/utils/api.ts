@@ -15,10 +15,11 @@ export interface RepoStatsResponse {
   reviews: RepoStatMetric;
 }
 
-export async function getDashboardData(owner: string, repo: string, range: "week" | "month" | "quarter") {
-  const res = await fetch(`${AGENT_API_BASE}/repo/dashboard-data?owner=${owner}&repo=${repo}&range=${range}&time_range=${range}`);
-  if (!res.ok) throw new Error("Failed to load dashboard data");
-  return await res.json();
+export interface QualityMetricsResponse {
+  build_success_rate: number;
+  build_success_note: string;
+  deployment_frequency: number;
+  deployment_count: number;
 }
 
 export async function getRepoStats(
@@ -150,6 +151,55 @@ export interface PRAnalysisResponse {
   contributionAnalysis: string;
   linkedIssuesSummary?: string | null;
   discussionSummary: string;
+}
+
+export async function getQualityMetrics(
+  owner: string,
+  repo: string,
+  range: "week" | "month" | "quarter"
+): Promise<QualityMetricsResponse> {
+  const url = new URL(`${AGENT_API_BASE}/repo/quality-metrics`);
+  url.searchParams.append("owner", owner);
+  url.searchParams.append("repo", repo);
+  url.searchParams.append("range", range);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to fetch quality metrics`);
+  }
+
+  return await response.json();
+}
+
+export interface BuildInfo {
+  id: number;
+  status: "success" | "failure" | string;
+  duration_seconds: number;
+  started_at: string;
+  commit_sha: string;
+  commit_url: string;
+  build_url: string;
+}
+
+export async function getRecentBuilds(
+  owner: string,
+  repo: string,
+  limit: number = 10
+): Promise<BuildInfo[]> {
+  const url = new URL(`${AGENT_API_BASE}/repo/builds`);
+  url.searchParams.append("owner", owner);
+  url.searchParams.append("repo", repo);
+  url.searchParams.append("limit", String(limit));
+
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error("Failed to fetch recent builds");
+  return res.json();
 }
 
 export async function analyzePullRequest(

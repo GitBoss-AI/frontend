@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, FormEvent } from 'react';
+import React, {useState, useCallback, FormEvent, useEffect} from 'react';
 import { getRepositoryPRs, PRListItemAPI, analyzePullRequest, PRAnalysisResponse } from '@/utils/api';
 import {
   ListChecks, AlertCircle, ExternalLink, Search, Loader2, CalendarDays, Filter, ChevronDown, ChevronUp, FileText, Sparkles
@@ -73,6 +73,15 @@ export default function RecentPRsPage() {
       setPrList(result);
       if (result.length === 0) {
         // setListError (or just let the UI handle "No PRs found")
+      } else {
+        sessionStorage.setItem("recentPrList", JSON.stringify(result));
+        sessionStorage.setItem("recentPrMeta", JSON.stringify({
+          listRepoOwner,
+          listRepoName,
+          listStartDate,
+          listEndDate,
+          listPrStateFilter,
+        }));
       }
     } catch (err: any) {
       setListError(err.message || "Failed to fetch PR list.");
@@ -132,6 +141,27 @@ export default function RecentPRsPage() {
     }
   };
 
+  useEffect(() => {
+    const cachedList = sessionStorage.getItem("recentPrList");
+    const cachedMeta = sessionStorage.getItem("recentPrMeta");
+
+    if (cachedList && cachedMeta) {
+      try {
+        const parsedList: PRListItemAPI[] = JSON.parse(cachedList);
+        const parsedMeta = JSON.parse(cachedMeta);
+
+        setPrList(parsedList);
+        setListRepoOwner(parsedMeta.listRepoOwner || "");
+        setListRepoName(parsedMeta.listRepoName || "");
+        setListStartDate(parsedMeta.listStartDate || getPastDateString(7));
+        setListEndDate(parsedMeta.listEndDate || getTodayDateString());
+        setListPrStateFilter(parsedMeta.listPrStateFilter || "all");
+        setHasFetchedList(true);
+      } catch (e) {
+        console.error("Error loading cached PR list:", e);
+      }
+    }
+  }, []);
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-8 bg-gray-100 min-h-screen">

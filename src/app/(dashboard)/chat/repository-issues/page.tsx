@@ -205,8 +205,8 @@ const CollapsibleIssue: React.FC<CollapsibleIssueProps> = ({
 };
 
 export default function RepositoryIssuesPage() {
-  const [repoOwner, setRepoOwner] = useState<string>("alpsencer");
-  const [repoName, setRepoName] = useState<string>("infrastack");
+  const [repoOwner, setRepoOwner] = useState<string>("GitBoss-AI");
+  const [repoName, setRepoName] = useState<string>("agent");
   const [startDate, setStartDate] = useState<string>(getPastDateString(30));
   const [endDate, setEndDate] = useState<string>(getTodayDateString());
   const [issueStateFilter, setIssueStateFilter] = useState<string>("all");
@@ -223,29 +223,31 @@ export default function RepositoryIssuesPage() {
   
 
   const fetchIssues = useCallback(async () => {
-    // ... (keep existing fetchIssues logic)
     if (!repoOwner.trim() || !repoName.trim()) {
       setError("Repository owner and name are required.");
-      setHasFetched(true); 
-      setIssuesData(null); 
+      setHasFetched(true);
       return;
     }
-    // ... (rest of validation)
+
     setIsLoading(true);
     setError(null);
-    setIssuesData(null);
     setHasFetched(true);
+
     try {
       const result = await getRepositoryIssues(repoOwner.trim(), repoName.trim(), startDate, endDate, issueStateFilter);
       if (result.error) {
         setError(`${result.error}${result.details ? ` (${result.details})` : ''}${result.status_code ? ` (Status: ${result.status_code})` : ''}`);
-        setIssuesData(null);
+        setIssuesData(null); // only clear if there's an actual error
+        sessionStorage.removeItem("repoIssuesData");
       } else {
         setIssuesData(result);
+        sessionStorage.setItem("repoIssuesData", JSON.stringify(result));
+        sessionStorage.setItem("repoIssuesMeta", JSON.stringify({ repoOwner, repoName, startDate, endDate, issueStateFilter }));
       }
     } catch (err: any) {
       setError(err.message || "Failed to fetch issues.");
-      setIssuesData(null);
+      setIssuesData(null); // only clear if there's an exception
+      sessionStorage.removeItem("repoIssuesData");
     } finally {
       setIsLoading(false);
     }
@@ -283,12 +285,27 @@ export default function RepositoryIssuesPage() {
     fetchIssues();
   };
 
-  // useEffect to fetch issues on initial load with default values might be desired
-  // useEffect(() => {
-  // fetchIssues();
-  // // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, []);
+  useEffect(() => {
+    const cachedData = sessionStorage.getItem("repoIssuesData");
+    const cachedMeta = sessionStorage.getItem("repoIssuesMeta");
 
+    if (cachedData && cachedMeta) {
+      try {
+        const parsedData: RepoIssuesResponseAPI = JSON.parse(cachedData);
+        const parsedMeta = JSON.parse(cachedMeta);
+
+        setIssuesData(parsedData);
+        setRepoOwner(parsedMeta.repoOwner || "GitBoss-AI");
+        setRepoName(parsedMeta.repoName || "agent");
+        setStartDate(parsedMeta.startDate || getPastDateString(30));
+        setEndDate(parsedMeta.endDate || getTodayDateString());
+        setIssueStateFilter(parsedMeta.issueStateFilter || "all");
+        setHasFetched(true);
+      } catch (e) {
+        console.error("Failed to parse cached issues data:", e);
+      }
+    }
+  }, []);
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-gray-100 min-h-screen">

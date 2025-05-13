@@ -96,10 +96,10 @@ export default function RegisterPage() {
 
           <button
               type="button"
-              onClick={() => router.push("/signin")}
+              onClick={() => router.push("/login")}
               className="w-full rounded border border-black py-2 font-semibold text-black hover:bg-gray-100"
           >
-            Sign In
+            Login
           </button>
         </div>
       </form>

@@ -1,10 +1,3 @@
-import {getToken} from './auth'
-
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE ||
-  "https://gitboss-ai.emirbosnak.com/api-dev";
-
 const AGENT_API_BASE = "http://localhost:8003"; // Example: Use env var or default
 
 

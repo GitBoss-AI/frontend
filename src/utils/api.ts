@@ -147,9 +147,10 @@ export async function getRecentActivity(
 
 export interface PRAnalysisResponse {
   prSummary: string;
-  contributionAnalysis: string;
   linkedIssuesSummary?: string | null;
   discussionSummary: string;
+  contributionAnalysis: string;
+
 }
 
 export async function analyzePullRequest(
@@ -324,6 +325,61 @@ export interface RepoIssuesResponseAPI {
   status_code?: number | null;
   details?: string | null;
 }
+export interface IssueSolutionOverallResponseAPI {
+  message: string;
+  workflow_id?: string | null;
+  steps: StepResponseAPI[];
+  final_diff?: string | null;
+  error?: string | null;
+}
+
+export interface GenerateIssueSolutionRequestAPI {
+  repo_owner: string;
+  repo_name: string;
+  issue_number: number;
+  issue_title: string;
+  issue_description: string;
+  // branch?: string; // Optional: if you add branch selection
+}
+export async function generateIssueSolution(
+  requestData: GenerateIssueSolutionRequestAPI,
+): Promise<IssueSolutionOverallResponseAPI> {
+  const url = `${AGENT_API_BASE}/generate-issue-solution`;
+
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(requestData),
+  });
+
+  if (!response.ok) {
+    let errorData;
+    try {
+      errorData = await response.json();
+    } catch (e) {
+      // Handle cases where error response is not JSON
+      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+    }
+    // Use detail field from FastAPI's HTTPException if available, or the custom error field
+    throw new Error(errorData.detail || errorData.error || `API request failed with status ${response.status}`);
+  }
+
+  const data: IssueSolutionOverallResponseAPI = await response.json();
+  return data;
+}
+
+export interface StepResponseAPI {
+  step_name: string;
+  status: string; // "success", "error", "skipped"
+  data?: any; // Data can be different for each step
+  error_message?: string | null;
+  duration_ms?: number | null;
+}
 
 
 export async function getRepositoryPRs(
@@ -480,6 +536,8 @@ export async function getRepositoryIssues(
     throw new Error(errorData.detail || `API request failed with status ${response.status}`);
   }
 
+  
+
   const data: RepoIssuesResponseAPI = await response.json();
   // If the successful response might still contain an error field (as per Pydantic model)
   if (data.error) {
@@ -488,3 +546,4 @@ export async function getRepositoryIssues(
   }
   return data;
 }
+

@@ -299,9 +299,9 @@ export default function RecentPRsPage() {
                   </div>
                 </div>
                 {expandedAnalyses[pr.number] && (
-                  <div className="mt-2 pl-2">
-                    {loadingAnalyses[pr.number] && <p className="text-sm text-gray-500 py-2 flex items-center"><Loader2 className="w-4 h-4 mr-2 animate-spin"/>Loading analysis...</p>}
-                    {errorAnalyses[pr.number] && <p className="text-sm text-red-600 p-2 bg-red-50 rounded-md">{errorAnalyses[pr.number]}</p>}
+                  <div className="mt-3 pl-4 border-l-2 border-indigo-100">
+                    {loadingAnalyses[pr.number] && <p className="text-sm text-gray-500 py-3 flex items-center"><Loader2 className="w-4 h-4 mr-2 animate-spin"/>Loading analysis...</p>}
+                    {errorAnalyses[pr.number] && <p className="text-sm text-red-600 p-3 bg-red-50 rounded-md border border-red-200">{errorAnalyses[pr.number]}</p>}
                     {analyses[pr.number] && !loadingAnalyses[pr.number] && !errorAnalyses[pr.number] && (
                       <PRAnalysisDisplay 
                         analysis={analyses[pr.number]!} 

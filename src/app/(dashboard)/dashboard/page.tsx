@@ -8,7 +8,7 @@ import {
   getTeamActivityTimeline,
   TimelineEntry,
   getRecentActivity,
-  RecentActivityItem, getDashboardData,
+  RecentActivityItem,
 } from "@/utils/api";
 import {
   AreaChart,
@@ -59,6 +59,7 @@ export default function DashboardPage() {
   const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
   const [isLoadingRecentActivity, setIsLoadingRecentActivity] = useState(false);
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
+
   const [repos, setRepos] = useState<{ owner: string; repo: string; label: string; }[]>([]);
 
   useEffect(() => {
@@ -68,8 +69,14 @@ export default function DashboardPage() {
     const saved = sessionStorage.getItem("selectedRepo");
     if (saved) {
       const parsed = JSON.parse(saved);
-      const match = loadedRepos.find(r => r.owner === parsed.owner && r.repo === parsed.repo);
-      setSelectedRepo(match || loadedRepos[0]);
+      const match = loadedRepos.find(
+        (r) => r.owner === parsed.owner && r.repo === parsed.repo
+      );
+      if (match) {
+        setSelectedRepo(match);
+      } else if (loadedRepos.length > 0) {
+        setSelectedRepo(loadedRepos[0]);
+      }
     } else if (loadedRepos.length > 0) {
       setSelectedRepo(loadedRepos[0]);
     }
@@ -85,64 +92,96 @@ export default function DashboardPage() {
   }, [timeWindow]);
 
   useEffect(() => {
-    if (!selectedRepo) return;
-    const key = `dashboardData:${selectedRepo.owner}/${selectedRepo.repo}:${getRangeParam(timeWindow)}`;
-    const cached = sessionStorage.getItem(key);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      setRepoStats(parsed.stats);
-      setTopContributors(parsed.contributors);
-      setTimelineData(parsed.timeline);
-      setRecentActivity(parsed.recent);
-      setHasFetchedOnce(true);
+    const stats = sessionStorage.getItem("repoStats");
+    const contributors = sessionStorage.getItem("topContributors");
+    const timeline = sessionStorage.getItem("timelineData");
+    const recent = sessionStorage.getItem("recentActivity");
+
+    if (stats) setRepoStats(JSON.parse(stats));
+    if (contributors) setTopContributors(JSON.parse(contributors));
+    if (timeline) setTimelineData(JSON.parse(timeline));
+    if (recent) setRecentActivity(JSON.parse(recent));
+
+    if (stats || contributors || timeline || recent) {
+      setHasFetchedOnce(true); // Optional: shows "Refresh" instead of "Fetch Data"
     }
-  }, [selectedRepo, timeWindow]);
+  }, []);
 
-  const fetchDashboardData = async () => {
+  const fetchStats = async () => {
     if (!selectedRepo) return;
-
-    const range = getRangeParam(timeWindow);
-    const key = `dashboardData:${selectedRepo.owner}/${selectedRepo.repo}:${range}`;
-    setHasFetchedOnce(true);
-
     setIsLoadingStats(true);
-    setIsLoadingContributors(true);
-    setIsLoadingTimeline(true);
-    setIsLoadingRecentActivity(true);
-
     try {
-      const data = await getDashboardData(selectedRepo.owner, selectedRepo.repo, range);
-
-      const formattedStats = {
-        commits: data.commits.count,
-        commitsChange: data.commits.change,
-        open_prs: data.prs.count,
-        prsChange: data.prs.change,
-        reviews: data.reviews.count,
-        reviewsChange: data.reviews.change,
-        issues: data.issues.count,
-        issuesChange: data.issues.change,
+      const range = getRangeParam(timeWindow);
+      const stats = await getRepoStats(selectedRepo.owner, selectedRepo.repo, range);
+      const formatted = {
+        commits: stats.commits.count,
+        commitsChange: stats.commits.change,
+        open_prs: stats.prs.count,
+        prsChange: stats.prs.change,
+        reviews: stats.reviews.count,
+        reviewsChange: stats.reviews.change,
+        issues: stats.issues.count,
+        issuesChange: stats.issues.change,
       };
-
-      setRepoStats(formattedStats);
-      setTopContributors(data.contributors);
-      setTimelineData(data.timeline);
-      setRecentActivity(data.recent);
-
-      sessionStorage.setItem(key, JSON.stringify({
-        stats: formattedStats,
-        contributors: data.contributors,
-        timeline: data.timeline,
-        recent: data.recent,
-      }));
+      setRepoStats(formatted);
+      sessionStorage.setItem('repoStats', JSON.stringify(formatted))
     } catch (err) {
-      console.error("❌ Failed to load dashboard data", err);
+      console.error("Stats load failed", err);
     } finally {
       setIsLoadingStats(false);
+    }
+  };
+
+  const fetchContributors = async () => {
+    if (!selectedRepo) return;
+    setIsLoadingContributors(true);
+    try {
+      const range = getRangeParam(timeWindow);
+      const contributors = await getTopContributorStats(selectedRepo.owner, selectedRepo.repo, range);
+      setTopContributors(contributors);
+      sessionStorage.setItem("topContributors", JSON.stringify(contributors));
+    } catch (err) {
+      console.error("Contributors load failed", err);
+    } finally {
       setIsLoadingContributors(false);
+    }
+  };
+
+  const fetchTimeline = async () => {
+    if (!selectedRepo) return;
+    setIsLoadingTimeline(true);
+    try {
+      const range = getRangeParam(timeWindow);
+      const timeline = await getTeamActivityTimeline(selectedRepo.owner, selectedRepo.repo, range);
+      setTimelineData(timeline);
+      sessionStorage.setItem("timelineData", JSON.stringify(timeline));
+    } catch (err) {
+      console.error("Timeline load failed", err);
+    } finally {
       setIsLoadingTimeline(false);
+    }
+  };
+
+  const fetchRecent = async () => {
+    if (!selectedRepo) return;
+    setIsLoadingRecentActivity(true);
+    try {
+      const recent = await getRecentActivity(selectedRepo.owner, selectedRepo.repo);
+      setRecentActivity(recent);
+      sessionStorage.setItem("recentActivity", JSON.stringify(recent));
+    } catch (err) {
+      console.error("Recent activity load failed", err);
+    } finally {
       setIsLoadingRecentActivity(false);
     }
+  };
+
+  const fetchDashboardData = async () => {
+    setHasFetchedOnce(true);
+    fetchStats();
+    fetchContributors();
+    fetchTimeline();
+    fetchRecent();
   };
 
   return (

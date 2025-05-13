@@ -118,6 +118,7 @@ export async function getTeamActivityTimeline(
 }
 
 export interface RecentActivityItem {
+  url: string;
   type: "commit" | "pr" | "review";
   username: string;
   message: string;

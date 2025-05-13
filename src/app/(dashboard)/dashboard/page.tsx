@@ -16,7 +16,8 @@ import {
 import {
   getRepoMonthlyStats,
   getTeamTimeline,
-  getRecentActivity, ContributorStats, getTopContributorStats,
+  ContributorStats, getTopContributorStats,
+  getTeamActivityTimeline, TimelineEntry
 } from "@/utils/api";
 import { Info } from "lucide-react";
 
@@ -24,6 +25,7 @@ const predefinedRepos = [
   { owner: "vercel", repo: "next.js", label: "vercel/next.js" },
   { owner: "facebook", repo: "react", label: "facebook/react" },
   { owner: "microsoft", repo: "vscode", label: "microsoft/vscode" },
+  { owner: "cli", repo: "cli", label: "cli/cli"},
 ];
 
 const mockTimelineData = [
@@ -88,12 +90,14 @@ export default function DashboardPage() {
     issuesChange: "—",
   });
   const [topContributors, setTopContributors] = useState<ContributorStats[]>([]);
-
-  const [timelineData, setTimelineData] = useState(mockTimelineData);
-  const [developerData, setDeveloperData] = useState(mockDeveloperData);
+  const [timelineData, setTimelineData] = useState<TimelineEntry[]>([]);
   const [recentActivity, setRecentActivity] = useState(mockRecentActivity);
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [isLoadingContributors, setIsLoadingContributors] = useState(false);
+  const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
+
   const [sortKey, setSortKey] = useState<"commits" | "prs" | "reviews">("commits");
 
   const [chatHistory, setChatHistory] = useState([
@@ -106,16 +110,13 @@ export default function DashboardPage() {
   const [input, setInput] = useState("");
 
   useEffect(() => {
+    const range = getRangeParam(timeWindow);
+
+    // Repo stats
     const fetchStats = async () => {
       setIsLoadingStats(true);
-      setIsLoadingContributors(true);
       try {
-        const range = getRangeParam(timeWindow);
-        const [stats, contributors] = await Promise.all([
-          getRepoMonthlyStats(selectedRepo.owner, selectedRepo.repo, range),
-          getTopContributorStats(selectedRepo.owner, selectedRepo.repo, range),
-        ]);
-
+        const stats = await getRepoMonthlyStats(selectedRepo.owner, selectedRepo.repo, range);
         setRepoStats({
           commits: stats.commits.count,
           commitsChange: stats.commits.change,
@@ -126,18 +127,45 @@ export default function DashboardPage() {
           issues: stats.issues.count,
           issuesChange: stats.issues.change,
         });
-
-        setTopContributors(contributors);
       } catch (err) {
-        console.error("❌ Failed to load data", err);
+        console.error("❌ Failed to load stats", err);
       } finally {
         setIsLoadingStats(false);
+      }
+    };
+
+    // Top contributors
+    const fetchContributors = async () => {
+      setIsLoadingContributors(true);
+      try {
+        const contributors = await getTopContributorStats(selectedRepo.owner, selectedRepo.repo, range);
+        setTopContributors(contributors);
+      } catch (err) {
+        console.error("❌ Failed to load contributors", err);
+      } finally {
         setIsLoadingContributors(false);
       }
     };
 
+    // Team timeline
+    const fetchTimeline = async () => {
+      setIsLoadingTimeline(true);
+      try {
+        const timeline = await getTeamActivityTimeline(selectedRepo.owner, selectedRepo.repo, range);
+        setTimelineData(timeline);
+      } catch (err) {
+        console.error("❌ Failed to load timeline", err);
+      } finally {
+        setIsLoadingTimeline(false);
+      }
+    };
+
     fetchStats();
+    fetchContributors();
+    fetchTimeline();
   }, [selectedRepo.owner, selectedRepo.repo, timeWindow]);
+
+
 
   const handleChatSubmit = (e: React.FormEvent) => {
     e.preventDefault();

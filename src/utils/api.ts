@@ -51,25 +51,6 @@ export async function getRepoMonthlyStats(
   return await response.json();
 }
 
-export async function getRepositoryStats(
-  repoUrl: string,
-  timeWindow: string = "7d",
-  repoId: number,
-) {
-  repoUrl = repoUrl.replace("https://", "").replace("www.", "");
-  const response = await fetch(
-    `${API_BASE}/repo/stats?repo_url=${encodeURIComponent(repoUrl)}&time_window=${timeWindow}&repo_id=${repoId}`,
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to fetch repository stats");
-  }
-
-  return data;
-}
-
 export interface ContributorStats {
   username: string;
   commits: number;
@@ -104,6 +85,38 @@ export async function getTopContributorStats(
   const data = await response.json();
   return data.contributors;
 }
+
+export interface TimelineEntry {
+  label: string;
+  commits: number;
+  prs: number;
+  reviews: number;
+}
+
+export async function getTeamActivityTimeline(
+  owner: string,
+  repo: string,
+  range: "week" | "month" | "quarter"
+): Promise<TimelineEntry[]> {
+  const url = new URL(`${AGENT_API_BASE}/repo/team-activity`);
+  url.searchParams.append("owner", owner);
+  url.searchParams.append("repo", repo);
+  url.searchParams.append("time_range", range);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch team activity timeline");
+  }
+
+  const data = await response.json();
+  return data.timeline;
+}
+
 
 // Contributor endpoints
 export async function getContributorStats(

@@ -15,13 +15,6 @@ export interface RepoStatsResponse {
   reviews: RepoStatMetric;
 }
 
-export interface QualityMetricsResponse {
-  build_success_rate: number;
-  build_success_note: string;
-  deployment_frequency: number;
-  deployment_count: number;
-}
-
 export async function getRepoStats(
   owner: string,
   repo: string,
@@ -176,7 +169,9 @@ export async function getRecentBuilds(
 
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error("Failed to fetch recent builds");
-  return res.json();
+
+  const data = await res.json();
+  return data.builds;
 }
 
 export async function analyzePullRequest(

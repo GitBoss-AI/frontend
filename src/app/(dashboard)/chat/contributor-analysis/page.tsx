@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { getItem, setItem, removeItem } from '@/utils/storage'; // Import storage utils
 
 // Helper date functions
 const getTodayDateString = () => {
@@ -21,6 +22,19 @@ const getPastDateString = (daysAgo: number) => {
   date.setDate(date.getDate() - daysAgo);
   return date.toISOString().split('T')[0];
 };
+
+// Function to create a unique storage key based on params
+const getContributorAnalysisStorageKey = (owner: string, repo: string, username: string) => {
+  if (!owner || !repo || !username) return null;
+  return `contributorAnalysisState_${owner}_${repo}_${username}`;
+};
+
+interface StoredContributorAnalysisState {
+  startDate: string;
+  endDate: string;
+  activityData?: ContributorActivityResponseAPI | null;
+  hasFetched: boolean;
+}
 
 // Collapsible Section component for toggling content visibility
 interface CollapsibleSectionProps {
@@ -81,6 +95,50 @@ export default function ContributorAnalysisPage() {
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
   
+  const storageKey = getContributorAnalysisStorageKey(owner, repo, username);
+
+  // Effect to load state from localStorage on mount or when params change
+  useEffect(() => {
+    if (!storageKey) return; // Don't load if key params are missing
+
+    const storedStateString = getItem(storageKey);
+    if (storedStateString) {
+      try {
+        const storedState: StoredContributorAnalysisState = JSON.parse(storedStateString);
+        setStartDate(storedState.startDate || getPastDateString(30));
+        setEndDate(storedState.endDate || getTodayDateString());
+        if (storedState.activityData) {
+          setActivityData(storedState.activityData);
+        }
+        setHasFetched(storedState.hasFetched || false);
+      } catch (e) {
+        console.error("Failed to parse stored contributor analysis state:", e);
+        removeItem(storageKey);
+      }
+    } else {
+      // Reset state if navigating to a new contributor/repo for whom no data is stored
+      setActivityData(null);
+      setHasFetched(false);
+      // Optionally reset dates too, or keep them if that's preferred UX
+      // setStartDate(getPastDateString(30));
+      // setEndDate(getTodayDateString());
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]); // Rerun if owner, repo, or username changes
+
+  // Effect to save state to localStorage
+  useEffect(() => {
+    if (!storageKey || (!hasFetched && !activityData)) return; // Don't save initial empty state unless fetched
+
+    const stateToStore: StoredContributorAnalysisState = {
+      startDate,
+      endDate,
+      activityData,
+      hasFetched,
+    };
+    setItem(storageKey, JSON.stringify(stateToStore));
+  }, [startDate, endDate, activityData, hasFetched, storageKey]);
+  
   // Fetch contributor activity data
   const fetchContributorActivity = useCallback(async () => {
     if (!username || !owner || !repo) {
@@ -100,17 +158,19 @@ export default function ContributorAnalysisPage() {
     
     setIsLoading(true);
     setError(null);
+    // setActivityData(null); // Decide if you want to clear previous data during load
+    setHasFetched(true);
     
     try {
       const data = await getContributorActivity(owner, repo, username, startDate, endDate);
       setActivityData(data);
-      setHasFetched(true);
     } catch (err: any) {
       setError(err.message || "Failed to fetch contributor activity");
+      setActivityData(null); // Clear data on error
     } finally {
       setIsLoading(false);
     }
-  }, [username, owner, repo, startDate, endDate]);
+  }, [username, owner, repo, startDate, endDate]); // Removed activityData from deps
   
   const handleAnalyze = (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,32 +1,79 @@
 "use client";
 
-import React, { useState, useCallback, FormEvent } from 'react';
+import React, { useState, useCallback, FormEvent, useEffect } from 'react';
 import { getRepositoryContributors, ContributorListItemAPI } from '@/utils/api';
 import { Users, AlertCircle, Search, Loader2, ExternalLink, Github, ArrowLeft, Filter } from 'lucide-react'; // Added Filter
 import Link from 'next/link';
 import Image from 'next/image';
+import { getItem, setItem, removeItem } from '@/utils/storage'; // Import storage utils
 
 // Helper date functions (getTodayDateString, getPastDateString - if needed, otherwise remove)
+
+const CONTRIBUTORS_PAGE_STORAGE_KEY = 'repositoryContributorsPageState';
+
+interface StoredContributorsPageState {
+  repoOwner: string;
+  repoName: string;
+  searchQuery: string;
+  contributorsList: ContributorListItemAPI[];
+  hasFetched: boolean;
+}
 
 export default function RepositoryContributorsPage() {
   const [repoOwner, setRepoOwner] = useState<string>("");
   const [repoName, setRepoName] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
-
   const [contributorsList, setContributorsList] = useState<ContributorListItemAPI[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
 
+  // Effect to load state from localStorage on mount
+  useEffect(() => {
+    const storedStateString = getItem(CONTRIBUTORS_PAGE_STORAGE_KEY);
+    if (storedStateString) {
+      try {
+        const storedState: StoredContributorsPageState = JSON.parse(storedStateString);
+        setRepoOwner(storedState.repoOwner || "");
+        setRepoName(storedState.repoName || "");
+        setSearchQuery(storedState.searchQuery || "");
+        if (storedState.contributorsList && storedState.contributorsList.length > 0) {
+          setContributorsList(storedState.contributorsList);
+        }
+        setHasFetched(storedState.hasFetched || false);
+      } catch (e) {
+        console.error("Failed to parse stored contributors page state:", e);
+        removeItem(CONTRIBUTORS_PAGE_STORAGE_KEY);
+      }
+    }
+  }, []);
+
+  // Effect to save state to localStorage whenever relevant parts change
+  useEffect(() => {
+    // Only save if hasFetched is true, to avoid overwriting with initial empty state
+    // or if there's meaningful data to save.
+    if (hasFetched || contributorsList.length > 0) {
+      const stateToStore: StoredContributorsPageState = {
+        repoOwner,
+        repoName,
+        searchQuery,
+        contributorsList,
+        hasFetched,
+      };
+      setItem(CONTRIBUTORS_PAGE_STORAGE_KEY, JSON.stringify(stateToStore));
+    }
+  }, [repoOwner, repoName, searchQuery, contributorsList, hasFetched]);
+
   const fetchContributors = useCallback(async () => {
     if (!repoOwner.trim() || !repoName.trim()) {
       setError("Repository owner and name are required.");
-      setHasFetched(true);
+      setHasFetched(true); // Still mark as fetched to save input state
+      setContributorsList([]); // Clear list on input error
       return;
     }
     setIsLoading(true);
     setError(null);
-    setContributorsList([]);
+    // setContributorsList([]); // Keep previous list during load for better UX, or clear if preferred
     setHasFetched(true);
     try {
       const result = await getRepositoryContributors(repoOwner.trim(), repoName.trim());
@@ -36,10 +83,11 @@ export default function RepositoryContributorsPage() {
       }
     } catch (err: any) {
       setError(err.message || "Failed to fetch contributors list.");
+      setContributorsList([]); // Clear list on API error
     } finally {
       setIsLoading(false);
     }
-  }, [repoOwner, repoName]);
+  }, [repoOwner, repoName]); // Removed contributorsList from dependencies to avoid loop, managed by useEffect
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();

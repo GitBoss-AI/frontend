@@ -14,6 +14,16 @@ import {
   Info as InfoIcon
 } from 'lucide-react';
 import Link from 'next/link'; // Standard import
+import { getItem, setItem, removeItem } from '@/utils/storage'; // Import storage utils
+
+const CHAT_PAGE_SINGLE_PR_TOOL_KEY = 'chatPageSinglePRToolState';
+
+interface StoredChatPageSinglePRState {
+  prNumberInput: string;
+  repoOwnerInput: string;
+  repoNameInput: string;
+  analysisResult?: PRAnalysisResponse | null; // Optional, as it's a result
+}
 
 const quickPrompts = [
   "Analyze commit patterns for owner/repo",
@@ -34,9 +44,40 @@ export default function ChatPage() {
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
+  // Effect to load state for Single PR tool
+  useEffect(() => {
+    const storedStateString = getItem(CHAT_PAGE_SINGLE_PR_TOOL_KEY);
+    if (storedStateString) {
+      try {
+        const storedState: StoredChatPageSinglePRState = JSON.parse(storedStateString);
+        setPrNumberInput(storedState.prNumberInput || "33165");
+        setRepoOwnerInput(storedState.repoOwnerInput || "facebook");
+        setRepoNameInput(storedState.repoNameInput || "react");
+        // Optionally restore analysisResult if desired
+        // if (storedState.analysisResult) {
+        //   setAnalysisResult(storedState.analysisResult);
+        // }
+      } catch (e) {
+        console.error("Failed to parse stored chat page PR tool state:", e);
+        removeItem(CHAT_PAGE_SINGLE_PR_TOOL_KEY);
+      }
+    }
+  }, []);
+
+  // Effect to save state for Single PR tool
+  useEffect(() => {
+    const stateToStore: StoredChatPageSinglePRState = {
+      prNumberInput,
+      repoOwnerInput,
+      repoNameInput,
+      // analysisResult, // Save the result too if you want it to persist across page loads
+    };
+    setItem(CHAT_PAGE_SINGLE_PR_TOOL_KEY, JSON.stringify(stateToStore));
+  }, [prNumberInput, repoOwnerInput, repoNameInput /*, analysisResult */]);
+
   const handleAnalyzePrViaApi = async () => {
     setIsLoadingAnalysis(true);
-    setAnalysisResult(null);
+    setAnalysisResult(null); // Clear previous result before new fetch
     setAnalysisError(null);
     try {
       const prNum = parseInt(prNumberInput, 10);
@@ -44,6 +85,7 @@ export default function ChatPage() {
       if (!repoOwnerInput.trim() || !repoNameInput.trim()) throw new Error("Owner/Repo required.");
       const result = await analyzePullRequest(prNum, repoOwnerInput.trim(), repoNameInput.trim());
       setAnalysisResult(result);
+      // The useEffect above will save the input states; if you want to save the result, add analysisResult to its dependency array and include it in stateToStore.
     } catch (err: any) {
       setAnalysisError(err.message || "Failed to analyze PR.");
     } finally {

@@ -14,6 +14,7 @@ import {
 import Link from 'next/link';
 import Image from 'next/image';
 import ReactMarkdown from 'react-markdown';
+import { getItem, setItem, removeItem } from '@/utils/storage'; // Import storage utilities
 
 const getTodayDateString = () => new Date().toISOString().split('T')[0];
 const getPastDateString = (daysAgo: number) => {
@@ -21,6 +22,20 @@ const getPastDateString = (daysAgo: number) => {
   date.setDate(date.getDate() - daysAgo);
   return date.toISOString().split('T')[0];
 };
+
+// Define a key for localStorage
+const ISSUES_PAGE_STORAGE_KEY = 'repositoryIssuesPageState';
+
+// Interface for the state we'll store in localStorage
+interface StoredIssuesPageState {
+  repoOwner: string;
+  repoName: string;
+  startDate: string;
+  endDate: string;
+  issueStateFilter: string;
+  issuesData?: RepoIssuesResponseAPI | null; // Optional, as it might not always be fetched
+  solutionResults?: { [issueNumber: number]: IssueSolutionOverallResponseAPI | null };
+}
 
 interface StepDetailDisplayProps {
     step: StepResponseAPI;
@@ -270,23 +285,58 @@ const CollapsibleIssue: React.FC<CollapsibleIssueProps> = ({
 };
   
 export default function RepositoryIssuesPage() {
-  // ... (keep existing state and functions: repoOwner, repoName, startDate, endDate, etc.)
-  const [repoOwner, setRepoOwner] = useState<string>("alpsencer"); 
-  const [repoName, setRepoName] = useState<string>("infrastack");  
+  // Initialize state with defaults or empty values
+  const [repoOwner, setRepoOwner] = useState<string>("alpsencer");
+  const [repoName, setRepoName] = useState<string>("infrastack");
   const [startDate, setStartDate] = useState<string>(getPastDateString(30));
   const [endDate, setEndDate] = useState<string>(getTodayDateString());
   const [issueStateFilter, setIssueStateFilter] = useState<string>("all");
-
   const [issuesData, setIssuesData] = useState<RepoIssuesResponseAPI | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
-
   const [solutionResults, setSolutionResults] = useState<{ [issueNumber: number]: IssueSolutionOverallResponseAPI | null }>({});
   const [generatingSolutionFor, setGeneratingSolutionFor] = useState<number | null>(null);
   const [solutionErrors, setSolutionErrors] = useState<{ [issueNumber: number]: string | null }>({});
-  
- 
+
+  // Effect to load state from localStorage on mount
+  useEffect(() => {
+    const storedStateString = getItem(ISSUES_PAGE_STORAGE_KEY);
+    if (storedStateString) {
+      try {
+        const storedState: StoredIssuesPageState = JSON.parse(storedStateString);
+        setRepoOwner(storedState.repoOwner || "alpsencer");
+        setRepoName(storedState.repoName || "infrastack");
+        setStartDate(storedState.startDate || getPastDateString(30));
+        setEndDate(storedState.endDate || getTodayDateString());
+        setIssueStateFilter(storedState.issueStateFilter || "all");
+        if (storedState.issuesData) { // Only set if it was stored
+            setIssuesData(storedState.issuesData);
+            setHasFetched(true); // Assume if data exists, it was fetched
+        }
+        if (storedState.solutionResults) {
+            setSolutionResults(storedState.solutionResults);
+        }
+      } catch (e) {
+        console.error("Failed to parse stored issues page state:", e);
+        removeItem(ISSUES_PAGE_STORAGE_KEY); // Clear corrupted data
+      }
+    }
+  }, []); // Empty dependency array ensures this runs only once on mount
+
+  // Effect to save state to localStorage whenever relevant parts change
+  useEffect(() => {
+    const stateToStore: StoredIssuesPageState = {
+      repoOwner,
+      repoName,
+      startDate,
+      endDate,
+      issueStateFilter,
+      issuesData, // This will save the fetched issues
+      solutionResults, // This will save solution results
+    };
+    setItem(ISSUES_PAGE_STORAGE_KEY, JSON.stringify(stateToStore));
+  }, [repoOwner, repoName, startDate, endDate, issueStateFilter, issuesData, solutionResults]);
 
   const fetchIssues = useCallback(async () => {
     if (!repoOwner.trim() || !repoName.trim()) {
@@ -435,8 +485,8 @@ export default function RepositoryIssuesPage() {
       )}
 
       {!isLoading && !error && hasFetched && issuesData && (
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden min-h-[60vh] flex flex-col">
+          <div className="px-6 py-6 border-b border-gray-200">
             <h2 className="text-xl font-semibold text-gray-800"> {/* Increased font size */}
               Found {issuesData.total_issues} Issue(s) for <span className="font-medium text-indigo-700">{issuesData.repository}</span>
             </h2>
@@ -445,7 +495,7 @@ export default function RepositoryIssuesPage() {
             </p>
           </div>
           {issuesData.issues.length > 0 ? (
-            <ul className="divide-y divide-gray-200 max-h-[calc(100vh-32rem)] overflow-y-auto p-3 sm:p-5 space-y-2"> {/* Increased padding */}
+            <ul className="divide-y divide-gray-200 max-h-[calc(100vh-28rem)] overflow-y-auto p-4 sm:p-6 space-y-3 flex-grow"> {/* Increased padding, spacing and using flex-grow to fill container */}
               {issuesData.issues.map((issue) => (
                 <CollapsibleIssue 
                   key={issue.id} 
@@ -460,20 +510,20 @@ export default function RepositoryIssuesPage() {
               ))}
             </ul>
           ) : (
-            <div className="p-8 text-center text-gray-500"> {/* Increased padding */}
-              <Info className="w-16 h-16 mx-auto text-gray-400 mb-4" /> {/* Increased size */}
-              No issues found matching your criteria.
+            <div className="p-12 text-center text-gray-500 flex-grow flex flex-col items-center justify-center"> {/* Increased padding and using flex for better centering */}
+              <Info className="w-20 h-20 mx-auto text-gray-400 mb-5" /> {/* Increased size */}
+              <p className="text-xl font-medium">No issues found matching your criteria.</p>
             </div>
           )}
         </div>
       )}
       
       {!isLoading && !error && hasFetched && !issuesData && (
-         <div className="my-4 text-center text-gray-500 py-16 bg-white rounded-xl shadow-lg"> {/* Increased padding */}
-            <Info className="w-20 h-20 mx-auto text-gray-400 mb-5" /> {/* Increased size */}
-            <p className="text-xl font-medium">No Data Available</p> {/* Increased font size */}
-            <p className="text-md mt-1">Please fetch issues to see results, or check if an error occurred.</p> {/* Increased font size */}
-        </div>
+         <div className="my-4 text-center text-gray-500 py-20 bg-white rounded-xl shadow-lg min-h-[50vh] flex flex-col items-center justify-center"> {/* Increased padding, min-height and using flex for better centering */}
+            <Info className="w-24 h-24 mx-auto text-gray-400 mb-6" /> {/* Increased size further */}
+            <p className="text-2xl font-medium">No Data Available</p> {/* Increased font size */}
+            <p className="text-md mt-2">Please fetch issues to see results, or check if an error occurred.</p> {/* Increased font size */}
+         </div>
       )}
     </div>
   );
